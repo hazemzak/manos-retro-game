@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>Manos — Level 1</title>
 <style>
   @font-face {
@@ -15,8 +15,25 @@
     src: url('assets/fonts/ManosLyrics.woff2') format('woff2'),
          url('assets/fonts/ManosLyrics.ttf') format('truetype');
   }
-  html, body { margin: 0; padding: 0; background: #0a0e1a; overflow: hidden; }
-  #game-container { width: 100vw; height: 100vh; }
+  html, body {
+    margin: 0; padding: 0; background: #0a0e1a; overflow: hidden;
+    height: 100%;
+    /* iOS Safari rubber-band bounce isn't stopped by overflow:hidden alone --
+       position:fixed on body is the documented fix (overscroll-behavior isn't
+       supported by Safari for this). */
+    position: fixed;
+    width: 100%;
+  }
+  #game-container {
+    width: 100vw;
+    height: 100vh; /* fallback for browsers without svh support */
+    /* 100vh on iOS Safari is computed against the LARGE viewport (toolbars
+       retracted), which is taller than what's actually visible when the
+       address bar is showing -- pushes/crops content out of the visible
+       screen (phaserjs/phaser#6072). 100svh sizes against the small
+       viewport (toolbars shown), matching what's actually on screen. */
+    height: 100svh;
+  }
 
   #volume-control {
     position: fixed;
@@ -50,6 +67,9 @@
     justify-content: space-between;
     align-items: flex-end;
     padding: 20px;
+    /* Keep controls clear of the iPhone home-indicator bar (safe-area-inset-bottom
+       is 0 on non-notch devices, so this is a no-op there). */
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
     box-sizing: border-box;
     pointer-events: none;
     user-select: none;
