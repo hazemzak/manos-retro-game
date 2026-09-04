@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Manos — Level 1</title>
+<style>
+  @font-face {
+    font-family: 'ManosEnvironment';
+    src: url('assets/fonts/ManosEnvironment.woff2') format('woff2'),
+         url('assets/fonts/ManosEnvironment.ttf') format('truetype');
+  }
+  @font-face {
+    font-family: 'ManosLyrics';
+    src: url('assets/fonts/ManosLyrics.woff2') format('woff2'),
+         url('assets/fonts/ManosLyrics.ttf') format('truetype');
+  }
+  html, body { margin: 0; padding: 0; background: #0a0e1a; overflow: hidden; }
+  #game-container { width: 100vw; height: 100vh; }
+
+  #volume-control {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'ManosLyrics', sans-serif;
+    color: #f4e9d8;
+    font-size: 14px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    user-select: none;
+  }
+  #volume-control input[type="range"] {
+    width: 100px;
+    accent-color: #b5473f;
+  }
+
+  /* Touch controls: shown only on touch-primary devices (real modern detection --
+     NOT a viewport-width query, which would misfire on a narrow desktop window or a
+     large tablet). */
+  #touch-controls {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 20px;
+    box-sizing: border-box;
+    pointer-events: none;
+    user-select: none;
+  }
+  @media (hover: none) and (pointer: coarse) {
+    #touch-controls { display: flex; }
+  }
+  .touch-cluster {
+    display: flex;
+    gap: 14px;
+    pointer-events: auto;
+  }
+  .touch-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 1px solid rgba(244,233,216,0.25);
+    background: rgba(10,14,26,0.55);
+    color: #f4e9d8;
+    font-family: 'ManosLyrics', sans-serif;
+    font-size: 26px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .touch-btn:active { background: rgba(181,71,63,0.55); }
+  .touch-btn-gesture { font-size: 22px; }
+</style>
+</head>
+<body>
+<div id="game-container"></div>
+<div id="volume-control">
+  <span>♪</span>
+  <input type="range" id="music-volume" min="0" max="1" step="0.05" value="0.5" />
+</div>
+<div id="touch-controls">
+  <div class="touch-cluster">
+    <button type="button" class="touch-btn" id="btn-left" aria-label="Left">◀</button>
+    <button type="button" class="touch-btn" id="btn-jump" aria-label="Jump">▲</button>
+    <button type="button" class="touch-btn" id="btn-right" aria-label="Right">▶</button>
+  </div>
+  <div class="touch-cluster">
+    <button type="button" class="touch-btn touch-btn-gesture" id="btn-heart" aria-label="Give heart">♥</button>
+    <button type="button" class="touch-btn touch-btn-gesture" id="btn-flowers" aria-label="Give flowers">✿</button>
+    <button type="button" class="touch-btn touch-btn-gesture" id="btn-dizzy" aria-label="Dizzy">☺</button>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script src="src/game.js"></script>
+<script>
+  document.getElementById('music-volume').addEventListener('input', (e) => {
+    const scene = window.game && window.game.scene.keys.Level;
+    if (scene && scene.music) scene.music.setVolume(parseFloat(e.target.value));
+  });
+</script>
+</body>
+</html>
