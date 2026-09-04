@@ -30,11 +30,17 @@ class LevelScene extends Phaser.Scene {
     this.load.spritesheet('dizzy_hearts', s.dizzy_hearts.file, { frameWidth: s.dizzy_hearts.frameWidth, frameHeight: s.dizzy_hearts.frameHeight });
     this.load.image('heart_icon', s.heart_icon.file);
     this.load.image('flowers_icon', s.flowers_icon.file);
-    this.load.audio('theme', 'assets/audio/manos_theme.mp3');
 
     const panels = cfg.level1.panelsRightToLeft;
     panels.forEach((file, i) => this.load.image('panel' + i, 'assets/approved/' + file));
 
+    // Audio is loaded in its OWN separate pass, started only after the game itself
+    // has booted -- NOT part of the load queue that gates buildLevel(). iOS Safari has
+    // a documented class of bug where its media loader intermittently hangs inside
+    // Phaser's preload (audio and video both reported), which would otherwise leave
+    // the entire game stuck on a black canvas forever waiting for a 'complete' event
+    // that never fires. This way a hung/failed audio load only means silent music --
+    // the actual game still boots and is playable.
     this.load.once('complete', () => this.buildLevel());
     this.load.start();
   }
@@ -156,15 +162,13 @@ class LevelScene extends Phaser.Scene {
     this.touchState = { left: false, right: false, jump: false, heart: false, flowers: false, dizzy: false };
     this.setupTouchControls();
 
-    // Background music. Browsers block audio playback until a real user gesture --
-    // this game already requires a click to focus for keyboard input to register, so
-    // piggyback on that same first interaction rather than building a separate
-    // "click to start" overlay. `once` on both pointerdown and keydown since either
-    // could be the player's first real interaction.
-    this.music = this.sound.add('theme', { loop: true, volume: 0.5 });
-    const startMusic = () => { if (!this.music.isPlaying) this.music.play(); };
-    this.input.once('pointerdown', startMusic);
-    this.input.keyboard.once('keydown', startMusic);
+    // Background music -- loaded in its own pass, kicked off only now that the game
+    // has actually booted (see the comment in create() for why: iOS Safari's media
+    // loader has a documented tendency to hang mid-preload, which must never be
+    // allowed to block the game itself from starting).
+    this.load.audio('theme', 'assets/audio/manos_theme.mp3');
+    this.load.once('complete', () => this.setupMusic());
+    this.load.start();
 
     // Thrown-projectile state (heart/flowers gestures). Listeners registered ONCE here,
     // not inside startGesture() -- registering per-play would stack duplicate listeners
@@ -214,6 +218,19 @@ class LevelScene extends Phaser.Scene {
     p.setScale(this.baseScale * (REF_CONTENT_HEIGHT / curContentHeight));
     p.body.setSize(p.width * 0.5, p.height * 0.9);
     p.body.setOffset(p.width * 0.25, p.height * 0.1);
+  }
+
+  // Called once the separate, non-blocking audio load pass (see create()/buildLevel())
+  // actually completes -- may never fire on a device where that load hangs, which is
+  // fine, `this.music` just stays undefined and the game is silent but still playable.
+  // Browsers block audio playback until a real user gesture -- the game already
+  // requires a click to focus for keyboard input to register, so piggyback on that
+  // same first interaction rather than building a separate "click to start" overlay.
+  setupMusic() {
+    this.music = this.sound.add('theme', { loop: true, volume: 0.5 });
+    const startMusic = () => { if (!this.music.isPlaying) this.music.play(); };
+    this.input.once('pointerdown', startMusic);
+    this.input.keyboard.once('keydown', startMusic);
   }
 
   // Wires the #touch-controls DOM overlay (index.html) to this.touchState. Pointer
