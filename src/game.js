@@ -371,7 +371,17 @@ class LevelScene extends Phaser.Scene {
 }
 
 window.game = new Phaser.Game({
-  type: Phaser.AUTO,
+  // CANVAS, not AUTO/WEBGL: iOS Safari has a persistent, still-current (WebKit bug
+  // #261331, reports through Safari 18.7.2 in 2026) WebGL context-loss bug on
+  // backgrounding a tab -- the canvas freezes on its last frame (sometimes
+  // permanently, no restore) when the tab is reactivated. This game has no shaders,
+  // no post-processing, no particle-heavy VFX -- sprite sheets, static images, Arcade
+  // physics only -- so there's nothing WebGL buys here. Canvas2D doesn't suffer this
+  // bug class at all, and is also MORE pixel-accurate for pixelArt (WebGL can smear
+  // 1px into 2px or wrap texture edges; Canvas always renders 1px as 1px -- see
+  // phaserjs/phaser#3698). Only tradeoff is CPU-bound draw perf at high sprite counts,
+  // which doesn't apply to this game's handful of sprites.
+  type: Phaser.CANVAS,
   parent: 'game-container',
   width: 1376,
   height: 768,
