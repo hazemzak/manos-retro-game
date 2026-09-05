@@ -1,110 +1,110 @@
-﻿{
-    "sprites":  {
-                    "walk":  {
-                                 "file":  "assets/game/manos_walk.png",
-                                 "frameWidth":  336,
-                                 "frameHeight":  376,
-                                 "frames":  8,
-                                 "contentLeft":  0,
-                                 "contentTop":  0,
-                                 "contentWidth":  336,
-                                 "contentHeight":  376,
-                                 "contentCenterX":  168,
-                                 "contentCenterY":  188
-                             },
-                    "idle":  {
-                                 "file":  "assets/game/manos_idle.png",
-                                 "frameWidth":  336,
-                                 "frameHeight":  376,
-                                 "frames":  4,
-                                 "contentLeft":  99,
-                                 "contentTop":  27,
-                                 "contentWidth":  142,
-                                 "contentHeight":  349,
-                                 "contentCenterX":  170,
-                                 "contentCenterY":  201
-                             },
-                    "jump":  {
-                                 "file":  "assets/game/manos_jump.png",
-                                 "frameWidth":  414,
-                                 "frameHeight":  414,
-                                 "frames":  6,
-                                 "contentLeft":  97,
-                                 "contentTop":  8,
-                                 "contentWidth":  215,
-                                 "contentHeight":  405,
-                                 "contentCenterX":  204,
-                                 "contentCenterY":  210
-                             },
-                    "heart_icon":  {
-                                       "file":  "assets/game/manos_heart_icon.png",
-                                       "frameWidth":  48,
-                                       "frameHeight":  49,
-                                       "frames":  1
-                                   },
-                    "gesture_heart":  {
-                                          "file":  "assets/game/manos_gesture_heart.png",
-                                          "frameWidth":  405,
-                                          "frameHeight":  408,
-                                          "frames":  6,
-                                          "contentLeft":  101,
-                                          "contentTop":  19,
-                                          "contentWidth":  278,
-                                          "contentHeight":  389,
-                                          "contentCenterX":  240,
-                                          "contentCenterY":  213
-                                      },
-                    "flowers_icon":  {
-                                         "file":  "assets/game/manos_flowers_icon.png",
-                                         "frameWidth":  63,
-                                         "frameHeight":  54,
-                                         "frames":  1
-                                     },
-                    "gesture_flowers":  {
-                                            "file":  "assets/game/manos_gesture_flowers.png",
-                                            "frameWidth":  405,
-                                            "frameHeight":  408,
-                                            "frames":  6,
-                                            "contentLeft":  104,
-                                            "contentTop":  20,
-                                            "contentWidth":  276,
-                                            "contentHeight":  388,
-                                            "contentCenterX":  242,
-                                            "contentCenterY":  214
-                                        },
-                    "dizzy_body":  {
-                                       "file":  "assets/game/manos_dizzy_body.png",
-                                       "frameWidth":  539,
-                                       "frameHeight":  720,
-                                       "frames":  4,
-                                       "contentLeft":  30,
-                                       "contentTop":  54,
-                                       "contentWidth":  409,
-                                       "contentHeight":  587,
-                                       "contentCenterX":  234,
-                                       "contentCenterY":  347
-                                   },
-                    "dizzy_hearts":  {
-                                         "file":  "assets/game/manos_dizzy_hearts.png",
-                                         "frameWidth":  344,
-                                         "frameHeight":  384,
-                                         "frames":  4,
-                                         "contentLeft":  134,
-                                         "contentTop":  10,
-                                         "contentWidth":  77,
-                                         "contentHeight":  30,
-                                         "contentCenterX":  172,
-                                         "contentCenterY":  24
-                                     }
-                },
-    "level1":  {
-                   "groundY":  632,
-                   "panelW":  1376,
-                   "panelH":  768,
-                   "playerScale":  0.62,
-                   "panelsRightToLeft":  [
-                                             "level1_panel_1_shops.jpg",
-                                             "level1_panel_2_kiosk.jpg"
-                                         ]
-               }
+{
+  "sprites": {
+    "walk": {
+      "file": "assets/game/manos_walk.png",
+      "frameWidth": 336,
+      "frameHeight": 376,
+      "frames": 8,
+      "contentLeft": 75,
+      "contentTop": 17,
+      "contentWidth": 193,
+      "contentHeight": 356,
+      "contentCenterX": 171,
+      "contentCenterY": 194
+    },
+    "idle": {
+      "file": "assets/game/manos_idle.png",
+      "frameWidth": 336,
+      "frameHeight": 376,
+      "frames": 4,
+      "contentLeft": 99,
+      "contentTop": 27,
+      "contentWidth": 142,
+      "contentHeight": 346,
+      "contentCenterX": 170,
+      "contentCenterY": 200
+    },
+    "jump": {
+      "file": "assets/game/manos_jump.png",
+      "frameWidth": 414,
+      "frameHeight": 414,
+      "frames": 6,
+      "contentLeft": 97,
+      "contentTop": 8,
+      "contentWidth": 215,
+      "contentHeight": 403,
+      "contentCenterX": 204,
+      "contentCenterY": 209
+    },
+    "gesture_heart": {
+      "file": "assets/game/manos_gesture_heart.png",
+      "frameWidth": 405,
+      "frameHeight": 408,
+      "frames": 6,
+      "contentLeft": 101,
+      "contentTop": 19,
+      "contentWidth": 278,
+      "contentHeight": 386,
+      "contentCenterX": 240,
+      "contentCenterY": 212
+    },
+    "heart_icon": {
+      "file": "assets/game/manos_heart_icon.png",
+      "frameWidth": 48,
+      "frameHeight": 49,
+      "frames": 1
+    },
+    "gesture_flowers": {
+      "file": "assets/game/manos_gesture_flowers.png",
+      "frameWidth": 405,
+      "frameHeight": 408,
+      "frames": 6,
+      "contentLeft": 104,
+      "contentTop": 20,
+      "contentWidth": 276,
+      "contentHeight": 385,
+      "contentCenterX": 242,
+      "contentCenterY": 212
+    },
+    "flowers_icon": {
+      "file": "assets/game/manos_flowers_icon.png",
+      "frameWidth": 63,
+      "frameHeight": 54,
+      "frames": 1
+    },
+    "dizzy_body": {
+      "file": "assets/game/manos_dizzy_body.png",
+      "frameWidth": 539,
+      "frameHeight": 720,
+      "frames": 4,
+      "contentLeft": 30,
+      "contentTop": 54,
+      "contentWidth": 409,
+      "contentHeight": 587,
+      "contentCenterX": 234,
+      "contentCenterY": 347
+    },
+    "dizzy_hearts": {
+      "file": "assets/game/manos_dizzy_hearts.png",
+      "frameWidth": 344,
+      "frameHeight": 384,
+      "frames": 4,
+      "contentLeft": 134,
+      "contentTop": 10,
+      "contentWidth": 77,
+      "contentHeight": 30,
+      "contentCenterX": 172,
+      "contentCenterY": 24
+    }
+  },
+  "level1": {
+    "groundY": 632,
+    "panelW": 1376,
+    "panelH": 768,
+    "playerScale": 0.62,
+    "panelsRightToLeft": [
+      "level1_panel_1_shops.jpg",
+      "level1_panel_2_kiosk.jpg"
+    ]
+  }
 }
