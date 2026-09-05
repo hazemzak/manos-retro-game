@@ -113,7 +113,7 @@
     position: fixed;
     left: 50%;
     transform: translateX(-50%);
-    top: 20px; /* overwritten by JS once the canvas rect is known */
+    bottom: 20px; /* overwritten by JS once the canvas rect is known */
     z-index: 10;
     max-width: min(80vw, 640px);
     box-sizing: border-box;
@@ -135,6 +135,14 @@
     text-shadow: none; /* flat, no soft shadow -- reads as 8-bit, not modern UI */
   }
   #lyric-bubble[hidden] { display: none; }
+  /* On touch devices #touch-controls occupies the bottom strip (64px buttons + 20px
+     padding + safe-area) -- push the subtitle bubble up to clear it, rather than
+     overlapping the gesture buttons. margin-bottom on a fixed+bottom-positioned element
+     still pushes it further from the bottom edge (the JS-set `bottom` anchors the
+     margin box), no extra JS needed for this. */
+  @media (hover: none) and (pointer: coarse) {
+    #lyric-bubble { margin-bottom: 92px; }
+  }
 </style>
 </head>
 <body>
@@ -166,24 +174,25 @@
 
   // Position the lyric bubble against the actual RENDERED canvas rect, not just a
   // fixed page offset -- Phaser.Scale.FIT can letterbox on unusual aspect ratios, and
-  // a naive page-relative "top: 20px" can land in a letterbox bar above the visible
-  // game instead of over it.
+  // a naive page-relative "bottom: 20px" can land in a letterbox bar below the visible
+  // game instead of over it. Anchored from the canvas's BOTTOM edge (subtitle-style,
+  // not the earlier top placement) -- distance-from-viewport-bottom, not top.
   function positionLyricBubble() {
     const canvas = window.game && window.game.canvas;
     const bubble = document.getElementById('lyric-bubble');
     if (!canvas || !bubble) return;
     const rect = canvas.getBoundingClientRect();
-    bubble.style.top = (rect.top + 16) + 'px';
+    bubble.style.bottom = (window.innerHeight - rect.bottom + 16) + 'px';
   }
   window.addEventListener('resize', positionLyricBubble);
   // The canvas doesn't exist until Phaser's Game boots -- poll briefly rather than
-  // assuming a fixed ready time.
-  const lyricPosInterval = setInterval(() => {
-    if (window.game && window.game.canvas) {
-      positionLyricBubble();
-      clearInterval(lyricPosInterval);
-    }
-  }, 100);
+  // assuming a fixed ready time. Directly observed staleness bug, not theoretical: the
+  // viewport's effective height can shift shortly after load (browser chrome/toolbar
+  // settling) without firing a `resize` event synced to that layout change, leaving a
+  // one-time-computed position stale (measured -54.75px off-screen in testing). A
+  // cheap periodic re-check is more robust than trying to catch every possible cause --
+  // mobile Safari's dynamic address-bar show/hide has the same class of risk.
+  setInterval(() => { if (window.game && window.game.canvas) positionLyricBubble(); }, 500);
 </script>
 </body>
 </html>
