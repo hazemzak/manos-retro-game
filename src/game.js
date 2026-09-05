@@ -34,6 +34,11 @@ class LevelScene extends Phaser.Scene {
     const panels = cfg.level1.panelsRightToLeft;
     panels.forEach((file, i) => this.load.image('panel' + i, 'assets/approved/' + file));
 
+    // Lyric cues (small JSON, not media -- doesn't carry the iOS media-loader hang risk
+    // audio does, safe to keep in the main gating queue). Missing/malformed file is a
+    // reachable state (this.cache.json.get returns undefined), guarded in buildLevel().
+    this.load.json('lyricsData', 'assets/lyrics.json');
+
     // Audio is loaded in its OWN separate pass, started only after the game itself
     // has booted -- NOT part of the load queue that gates buildLevel(). iOS Safari has
     // a documented class of bug where its media loader intermittently hangs inside
@@ -47,20 +52,24 @@ class LevelScene extends Phaser.Scene {
 
   buildLevel() {
     const cfg = this.cfg;
-    const { panelW, panelH, groundY, playerScale, panelsRightToLeft } = cfg.level1;
-    const panelCount = panelsRightToLeft.length;
-    const worldW = panelW * panelCount;
-    this.worldW = worldW;
+    const { panelW, panelH, groundY, playerScale } = cfg.level1;
 
-    // Place panels reversed: index 0 (the start, shops) at the HIGHEST x.
-    // panelsRightToLeft[0] is where the player spawns; the level reads right-to-left.
-    for (let i = 0; i < panelCount; i++) {
-      const x = worldW - (i + 1) * panelW;
-      this.add.image(x, 0, 'panel' + i).setOrigin(0, 0);
-    }
+    // Panel textures, in the order they repeat as the belt extends ("logical index" 0,
+    // 1, 2, 3... maps to panelTextures[0,1,0,1...]). panelsRightToLeft[0] (shops) is
+    // where the player spawns, matching the original fixed-layout design.
+    this.panelTextures = cfg.level1.panelsRightToLeft.map((_, i) => 'panel' + i);
 
-    // Ground: one invisible static collider spanning the whole level width.
-    const ground = this.add.rectangle(worldW / 2, groundY + 20, worldW, 40, 0x000000, 0);
+    // Level 1's real end condition is TIME (the song reaching 60s), not distance --
+    // see onLevel1Complete(). A large-but-finite world (not truly unbounded/
+    // re-based coordinates -- unnecessary complexity for a time-gated level) comfortably
+    // covers any real play session in either direction. Panels are tile-recycled across
+    // this range in updatePanels(), not placed once.
+    const WORLD_HALF_PANELS = 20;
+    this.worldMinX = -WORLD_HALF_PANELS * panelW;
+    this.worldMaxX = WORLD_HALF_PANELS * panelW;
+
+    // Ground: one invisible static collider spanning the whole (large-but-finite) world.
+    const ground = this.add.rectangle(0, groundY + 20, this.worldMaxX - this.worldMinX, 40, 0x000000, 0);
     this.physics.add.existing(ground, true);
 
     // Animations
@@ -107,11 +116,13 @@ class LevelScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // Player spawns inside the shops segment (panelsRightToLeft[0]), near the right edge of the world.
+    // Player spawns inside logical panel index 0 (shops), near its right edge -- same
+    // relative spawn position as the original fixed layout, just re-expressed against
+    // the new index-based panel coordinate system (panelX(k) = -k * panelW).
     // Spawn ABOVE the ground line (not on/inside it) so Arcade Physics resolves a real
     // fall-and-land collision -- spawning already overlapping the collider leaves the body
     // "embedded" and onFloor() never becomes true.
-    this.player = this.physics.add.sprite(worldW - 200, groundY - 150, 'walk', 0);
+    this.player = this.physics.add.sprite(panelW - 200, groundY - 150, 'walk', 0);
     this.player.setOrigin(0.5, 1);
     this.baseScale = playerScale;
     this.resizeBodyForTexture();
@@ -119,13 +130,17 @@ class LevelScene extends Phaser.Scene {
 
     this.physics.add.collider(this.player, ground);
 
-    this.physics.world.setBounds(0, 0, worldW, panelH);
-    this.cameras.main.setBounds(0, 0, worldW, panelH);
+    this.physics.world.setBounds(this.worldMinX, 0, this.worldMaxX - this.worldMinX, panelH);
+    this.cameras.main.setBounds(this.worldMinX, 0, this.worldMaxX - this.worldMinX, panelH);
 
     // RTL camera follow: positive offset seats the player right-of-centre so the
     // space he's walking INTO (leftward) is visible. Verify sign in-browser.
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setFollowOffset(260, 0);
+
+    // Panel pool: populated on the first updatePanels() call in update() (camera's
+    // worldView isn't meaningful until after the first render pass), not here.
+    this.panelPool = [];
 
     // Dizzy's circling-hearts overlay -- a separate sprite, not baked into the player
     // texture (see GAME_PLAN.md's "two separate assets" call), so its loop timing is
@@ -169,6 +184,27 @@ class LevelScene extends Phaser.Scene {
     this.load.audio('theme', 'assets/audio/manos_theme.mp3');
     this.load.once('complete', () => this.setupMusic());
     this.load.start();
+
+    // Level 1's clock: this.music.seek WHEN PLAYING, falling back to wall-clock time
+    // since the first real interaction otherwise. Required because the audio-loading
+    // system is deliberately built to tolerate music never loading at all (the iOS
+    // Safari fix above) -- a clock that only worked via music.seek could simply never
+    // reach the completion trigger, leaving the level unbounded. This listener is
+    // independent of setupMusic()/the audio load succeeding.
+    this.levelClockStart = null;
+    const startLevelClock = () => { if (this.levelClockStart === null) this.levelClockStart = this.time.now; };
+    this.input.once('pointerdown', startLevelClock);
+    this.input.keyboard.once('keydown', startLevelClock);
+
+    this.level1Complete = false;
+    this.movementLocked = false;
+
+    // Lyric cues: [{start, end, text}, ...], real timestamps against the final mix (see
+    // MANOS_RETRO_GAME_SUPPORT_PLAYBOOK.md for the alignment methodology). Missing/
+    // malformed data degrades to "no lyrics shown", not a crash.
+    this.lyrics = this.cache.json.get('lyricsData') || [];
+    this.lyricEl = document.getElementById('lyric-bubble');
+    this._lastLyricText = '';
 
     // Thrown-projectile state (heart/flowers gestures). Listeners registered ONCE here,
     // not inside startGesture() -- registering per-play would stack duplicate listeners
@@ -227,10 +263,83 @@ class LevelScene extends Phaser.Scene {
   // requires a click to focus for keyboard input to register, so piggyback on that
   // same first interaction rather than building a separate "click to start" overlay.
   setupMusic() {
-    this.music = this.sound.add('theme', { loop: true, volume: 0.5 });
+    // The load pass's 'complete' event fires whether the file loaded OR errored --
+    // guard the cache directly rather than assuming success (Phaser's Sound.add()
+    // throws on a missing cache entry).
+    if (!this.cache.audio.exists('theme')) return;
+    // Read the slider's CURRENT value rather than hardcoding -- if Hazem adjusted it
+    // before this async load pass finished, the old code silently discarded that.
+    // loop:false, not true -- disables .seek wrapping back to 0 mid-track, which would
+    // corrupt the level clock (see getLevelElapsed()). Level 1 completes at 60s, well
+    // before the 183.9s track would ever reach its end anyway.
+    const slider = document.getElementById('music-volume');
+    const initialVolume = slider ? parseFloat(slider.value) : 0.5;
+    this.music = this.sound.add('theme', { loop: false, volume: initialVolume });
     const startMusic = () => { if (!this.music.isPlaying) this.music.play(); };
     this.input.once('pointerdown', startMusic);
     this.input.keyboard.once('keydown', startMusic);
+  }
+
+  // Single sampled source of truth for "how far into Level 1 are we", read once per
+  // update() tick and reused for both the lyric lookup and the completion check (not
+  // two separate live reads that could disagree within the same frame).
+  getLevelElapsed() {
+    if (this.music && this.music.isPlaying) return this.music.seek;
+    if (this.levelClockStart !== null) return (this.time.now - this.levelClockStart) / 1000;
+    return 0;
+  }
+
+  // Named extension point for the real cinema-transition/Level 2 hookup (Hazem's own
+  // future art/work) -- deliberately minimal placeholder for now. Latched: called
+  // exactly once via the level1Complete flag in update(), never re-entered.
+  onLevel1Complete() {
+    if (this.music) this.music.pause();
+    this.movementLocked = true;
+    if (this.lyricEl) {
+      this.lyricEl.textContent = 'to be continued...';
+      this.lyricEl.hidden = false;
+    }
+  }
+
+  // Reconciles the panel sprite pool against whatever logical panel indices the camera
+  // can currently see (+1 buffer each side), in EITHER scroll direction -- not a one-
+  // directional "recycle when it scrolls off the left" check, which would leave gaps if
+  // the player walks back right. panelX(k) = -k * panelW places index 0 at the original
+  // spawn panel, increasing k further left (matching the original RTL layout's
+  // convention), decreasing k (negative) further right.
+  updatePanels() {
+    const panelW = this.cfg.level1.panelW;
+    const cam = this.cameras.main;
+    const camLeft = cam.worldView.x;
+    const camRight = camLeft + cam.worldView.width;
+    // indexAtX: which logical panel index contains world position x, given panelX(k) =
+    // -k*panelW spans [-k*panelW, -k*panelW + panelW). Derived and checked against
+    // concrete examples (x=0 -> k=0, x=panelW-1 -> k=0, x=panelW -> k=-1, x=-1 -> k=1).
+    const indexAtX = (x) => -Math.floor(x / panelW);
+    // camLeft (smallest visible x) maps to the LARGEST needed k (furthest-left panel);
+    // camRight maps to the smallest. +-1 is a one-panel buffer on each side.
+    const kMax = indexAtX(camLeft) + 1;
+    const kMin = indexAtX(camRight) - 1;
+
+    const spare = this.panelPool.filter((p) => p.index < kMin || p.index > kMax);
+    let spareI = 0;
+    for (let k = kMin; k <= kMax; k++) {
+      if (this.panelPool.some((p) => p.index === k)) continue;
+      let p = spare[spareI++];
+      if (!p) {
+        // depth:-1 -- panels are now created lazily here in update(), long after the
+        // player/gesture sprites already exist in buildLevel(). Without an explicit
+        // depth, Phaser's default render order (display-list insertion order) would put
+        // every newly-recycled panel ON TOP of the player instead of behind it -- caught
+        // via an actual screenshot showing no character at all, not by code review.
+        p = { sprite: this.add.image(0, 0, this.panelTextures[0]).setOrigin(0, 0).setDepth(-1), index: null };
+        this.panelPool.push(p);
+      }
+      const texIdx = ((k % this.panelTextures.length) + this.panelTextures.length) % this.panelTextures.length;
+      p.sprite.setTexture(this.panelTextures[texIdx]);
+      p.sprite.x = -k * panelW;
+      p.index = k;
+    }
   }
 
   // Wires the #touch-controls DOM overlay (index.html) to this.touchState. Pointer
@@ -300,6 +409,32 @@ class LevelScene extends Phaser.Scene {
   update(time, delta) {
     if (!this.ready) return;
 
+    this.updatePanels();
+
+    // Single sampled value, reused below for both the lyric lookup and the completion
+    // check -- see the comment on getLevelElapsed().
+    const elapsed = this.getLevelElapsed();
+
+    if (!this.level1Complete) {
+      if (elapsed >= 60) {
+        this.level1Complete = true; // latched -- onLevel1Complete() runs exactly once
+        this.onLevel1Complete();
+      } else if (this.lyricEl) {
+        let activeText = '';
+        for (const cue of this.lyrics) {
+          if (elapsed >= cue.start && elapsed < cue.end) { activeText = cue.text; break; }
+        }
+        // Only touch the DOM when the selected cue actually changes -- and this full
+        // re-scan every tick (cheap at 54 cues) is deliberately NOT a forward-only
+        // pointer, which would break on a backward seek or a level restart.
+        if (activeText !== this._lastLyricText) {
+          this.lyricEl.textContent = activeText;
+          this.lyricEl.hidden = !activeText;
+          this._lastLyricText = activeText;
+        }
+      }
+    }
+
     const onFloor = this.player.body.onFloor();
 
     // Gestures are a deliberate stationary beat (GAME_PLAN.md Milestone 3: "press a
@@ -322,6 +457,12 @@ class LevelScene extends Phaser.Scene {
         this.dizzyHearts.x = this.player.x;
         this.dizzyHearts.y = this.player.y - this.player.displayHeight + 15;
       }
+    } else if (this.movementLocked) {
+      // Enforced HERE, every tick, inside the real velocity branch -- not a one-time
+      // setVelocityX(0) at completion, which the next tick's normal movement code would
+      // just overwrite right back.
+      this.player.setVelocityX(0);
+      if (onFloor) this.player.anims.play('idleAnim', true);
     } else {
       const left = this.cursors.left.isDown || this.keyA.isDown || this.touchState.left;
       const right = this.cursors.right.isDown || this.touchState.right;
@@ -356,7 +497,7 @@ class LevelScene extends Phaser.Scene {
       const proj = this.projectiles[i];
       proj.sprite.x += proj.vx * (delta / 1000);
       proj.sprite.rotation += 0.25;
-      const outOfBounds = proj.sprite.x < -50 || proj.sprite.x > this.worldW + 50;
+      const outOfBounds = proj.sprite.x < this.worldMinX - 50 || proj.sprite.x > this.worldMaxX + 50;
       const expired = (this.time.now - proj.spawnTime) > 3000;
       if (outOfBounds || expired) {
         proj.sprite.destroy();

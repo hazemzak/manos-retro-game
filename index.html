@@ -101,6 +101,40 @@
   }
   .touch-btn:active { background: rgba(181,71,63,0.55); }
   .touch-btn-gesture { font-size: 22px; }
+
+  /* GTA2-style "mission text" lyric bubble -- boxed, hard-edged (no border-radius, no
+     blur/shadow softness -- that would read as modern UI, not 8-bit), dark solid
+     background. Positioned via JS against the actual rendered canvas rect (see script
+     below), not just page-relative CSS -- Phaser's Scale.FIT can letterbox, and a naive
+     page-relative "top-center" can land in a letterbox bar rather than over the visible
+     game on an unusual aspect ratio. Horizontal centering IS safe as plain CSS, since
+     Scale.CENTER_BOTH means canvas-center and page-center already coincide. */
+  #lyric-bubble {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 20px; /* overwritten by JS once the canvas rect is known */
+    z-index: 10;
+    max-width: min(80vw, 640px);
+    box-sizing: border-box;
+    padding: 10px 18px;
+    background: #0a0e1a;
+    border: 3px solid #f4e9d8;
+    color: #f4e9d8;
+    font-family: 'ManosLyrics', sans-serif;
+    font-size: 18px;
+    text-align: center;
+    line-height: 1.4;
+    /* Arabic lyric text -- must render right-to-left, the page itself is declared LTR/
+       English (lang="en" on <html>), this is a deliberate scoped override. */
+    direction: rtl;
+    unicode-bidi: isolate;
+    pointer-events: none; /* decorative overlay -- must never intercept the first tap/
+                              click that unlocks audio, or any gameplay input */
+    user-select: none;
+    text-shadow: none; /* flat, no soft shadow -- reads as 8-bit, not modern UI */
+  }
+  #lyric-bubble[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -121,6 +155,7 @@
     <button type="button" class="touch-btn touch-btn-gesture" id="btn-dizzy" aria-label="Dizzy">☺</button>
   </div>
 </div>
+<div id="lyric-bubble" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 <script src="src/game.js"></script>
 <script>
@@ -128,6 +163,27 @@
     const scene = window.game && window.game.scene.keys.Level;
     if (scene && scene.music) scene.music.setVolume(parseFloat(e.target.value));
   });
+
+  // Position the lyric bubble against the actual RENDERED canvas rect, not just a
+  // fixed page offset -- Phaser.Scale.FIT can letterbox on unusual aspect ratios, and
+  // a naive page-relative "top: 20px" can land in a letterbox bar above the visible
+  // game instead of over it.
+  function positionLyricBubble() {
+    const canvas = window.game && window.game.canvas;
+    const bubble = document.getElementById('lyric-bubble');
+    if (!canvas || !bubble) return;
+    const rect = canvas.getBoundingClientRect();
+    bubble.style.top = (rect.top + 16) + 'px';
+  }
+  window.addEventListener('resize', positionLyricBubble);
+  // The canvas doesn't exist until Phaser's Game boots -- poll briefly rather than
+  // assuming a fixed ready time.
+  const lyricPosInterval = setInterval(() => {
+    if (window.game && window.game.canvas) {
+      positionLyricBubble();
+      clearInterval(lyricPosInterval);
+    }
+  }, 100);
 </script>
 </body>
 </html>
