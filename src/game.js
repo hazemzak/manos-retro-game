@@ -5,6 +5,13 @@ const SPEED = 260;
 const JUMP_VELOCITY = -750;
 const GRAVITY_Y = 1800;
 const PROJECTILE_SPEED = 700;
+const CINEMA_GATE = {
+  stopX: 596, stopY: 632,
+  insideX: 466, insideY: 574,
+  holdMs: 1000, walkMs: 500,
+};
+const CINEMA_LYRICS_START = 60;
+const CINEMA_LYRICS_END = 118.87;
 
 // Android Chrome supports the in-tab Fullscreen API; iOS Safari does not (verified
 // current, Sept 2026 -- WebKit has never implemented requestFullscreen outside <video>,
@@ -57,8 +64,13 @@ class LevelScene extends Phaser.Scene {
     this.load.spritesheet('gesture_flowers', s.gesture_flowers.file, { frameWidth: s.gesture_flowers.frameWidth, frameHeight: s.gesture_flowers.frameHeight });
     this.load.spritesheet('dizzy_body', s.dizzy_body.file, { frameWidth: s.dizzy_body.frameWidth, frameHeight: s.dizzy_body.frameHeight });
     this.load.spritesheet('dizzy_hearts', s.dizzy_hearts.file, { frameWidth: s.dizzy_hearts.frameWidth, frameHeight: s.dizzy_hearts.frameHeight });
+    this.load.spritesheet('phone_pull', s.phone_pull.file, { frameWidth: s.phone_pull.frameWidth, frameHeight: s.phone_pull.frameHeight });
+    this.load.spritesheet('phone_read', s.phone_read.file, { frameWidth: s.phone_read.frameWidth, frameHeight: s.phone_read.frameHeight });
     this.load.image('heart_icon', s.heart_icon.file);
     this.load.image('flowers_icon', s.flowers_icon.file);
+    this.load.image('panel_door_closed', 'assets/game/panel_cinema_door_closed.png');
+    this.load.image('panel_door_open', 'assets/game/panel_cinema_door_open.png');
+    this.load.image('level2_bg', 'assets/game/level2_cinema_hall_blank.png');
 
     const panels = cfg.level1.panelsRightToLeft;
     panels.forEach((file, i) => this.load.image('panel' + i, 'assets/approved/' + file));
@@ -88,18 +100,17 @@ class LevelScene extends Phaser.Scene {
     // where the player spawns, matching the original fixed-layout design.
     this.panelTextures = cfg.level1.panelsRightToLeft.map((_, i) => 'panel' + i);
 
-    // Level 1's real end condition is TIME (the song reaching 60s), not distance --
-    // see onLevel1Complete(). A large-but-finite world (not truly unbounded/
-    // re-based coordinates -- unnecessary complexity for a time-gated level) comfortably
-    // covers any real play session in either direction. Panels are tile-recycled across
-    // this range in updatePanels(), not placed once.
+    // A large-but-finite exterior world (not truly unbounded/re-based coordinates)
+    // comfortably covers any real play session in either direction. Panels are
+    // tile-recycled across this range in updatePanels(), not placed once; the cinema
+    // gate is reserved on this same grid when the song-clock cutscene begins.
     const WORLD_HALF_PANELS = 20;
     this.worldMinX = -WORLD_HALF_PANELS * panelW;
     this.worldMaxX = WORLD_HALF_PANELS * panelW;
 
     // Ground: one invisible static collider spanning the whole (large-but-finite) world.
-    const ground = this.add.rectangle(0, groundY + 20, this.worldMaxX - this.worldMinX, 40, 0x000000, 0);
-    this.physics.add.existing(ground, true);
+    this.ground = this.add.rectangle(0, groundY + 20, this.worldMaxX - this.worldMinX, 40, 0x000000, 0);
+    this.physics.add.existing(this.ground, true);
 
     // Animations
     this.anims.create({
@@ -144,6 +155,18 @@ class LevelScene extends Phaser.Scene {
       frameRate: 6,
       repeat: -1,
     });
+    this.anims.create({
+      key: 'phonePullAnim',
+      frames: this.anims.generateFrameNumbers('phone_pull', { start: 0, end: cfg.sprites.phone_pull.frames - 1 }),
+      frameRate: 10,   // matches walkAnim's rate -- the swap must be seamless mid-stride
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'phoneReadAnim',
+      frames: this.anims.generateFrameNumbers('phone_read', { start: 0, end: cfg.sprites.phone_read.frames - 1 }),
+      frameRate: 10,
+      repeat: -1,
+    });
 
     // Player spawns inside logical panel index 0 (shops), near its right edge -- same
     // relative spawn position as the original fixed layout, just re-expressed against
@@ -157,7 +180,7 @@ class LevelScene extends Phaser.Scene {
     this.resizeBodyForTexture();
     this.player.setCollideWorldBounds(true);
 
-    this.physics.add.collider(this.player, ground);
+    this.physics.add.collider(this.player, this.ground);
 
     this.physics.world.setBounds(this.worldMinX, 0, this.worldMaxX - this.worldMinX, panelH);
     this.cameras.main.setBounds(this.worldMinX, 0, this.worldMaxX - this.worldMinX, panelH);
@@ -210,6 +233,7 @@ class LevelScene extends Phaser.Scene {
     // has actually booted (see the comment in create() for why: iOS Safari's media
     // loader has a documented tendency to hang mid-preload, which must never be
     // allowed to block the game itself from starting).
+    this.musicStarted = false;
     this.load.audio('theme', 'assets/audio/manos_theme.mp3');
     this.load.once('complete', () => this.setupMusic());
     this.load.start();
@@ -237,15 +261,34 @@ class LevelScene extends Phaser.Scene {
     onFirstRealGesture(requestFullscreenOnce);
     this.input.keyboard.once('keydown', requestFullscreenOnce);
 
-    this.level1Complete = false;
-    this.movementLocked = false;
+    // Phone-call / cinema-arrival cutscene state -- see update()'s song-clock-anchored
+    // stage checks and the onArrive/onDoorsOpen/onFadeOut/enterLevel2 methods below.
+    this.cutsceneActive = false;  // true from 0:47 through the fade
+    this.arrived = false;          // one-shot latch, ~1:00
+    this.doorsOpened = false;      // one-shot latch, ~1:03
+    this.fadedOut = false;         // one-shot latch, set when the doorway walk completes
+    this.level2Active = false;     // true once the fixed interior has been installed
+    this.level2Revealing = false;  // blocks input until the interior fade-in completes
+    this.panelsFrozen = false;     // stops updatePanels() recycling from ARRIVE onward
+    this.holdPosition = false;
+    this.walkingThroughDoor = false;
+    this.phoneTimers = [];
+    this.phonePullCompleteHandler = null;
+    this.phoneImageLoadHandler = null;
+    this.doorHoldTimer = null;
+    this.doorWalkTimer = null;
 
     // Lyric cues: [{start, end, text}, ...], real timestamps against the final mix (see
     // MANOS_RETRO_GAME_SUPPORT_PLAYBOOK.md for the alignment methodology). Missing/
     // malformed data degrades to "no lyrics shown", not a crash.
-    this.lyrics = this.cache.json.get('lyricsData') || [];
+    const lyricData = this.cache.json.get('lyricsData');
+    const validLyrics = Array.isArray(lyricData) && lyricData.every((cue) => (
+      cue && Number.isFinite(cue.start) && Number.isFinite(cue.end)
+      && cue.end > cue.start && typeof cue.text === 'string'
+    ));
+    this.lyrics = validLyrics ? lyricData : [];
     this.lyricEl = document.getElementById('lyric-bubble');
-    this._lastLyricText = '';
+    this.cinemaLyricEl = document.getElementById('cinema-screen-lyrics');
 
     // Thrown-projectile state (heart/flowers gestures). Listeners registered ONCE here,
     // not inside startGesture() -- registering per-play would stack duplicate listeners
@@ -255,6 +298,19 @@ class LevelScene extends Phaser.Scene {
       if (!frame.isLast || this._projSpawned) return;
       if (anim.key === 'giveHeartAnim') { this._projSpawned = true; this.spawnProjectile('heart'); }
       else if (anim.key === 'giveFlowersAnim') { this._projSpawned = true; this.spawnProjectile('flowers'); }
+    });
+
+    this.events.once('shutdown', () => {
+      this.cancelPhonePresentation();
+      if (this.doorHoldTimer) this.doorHoldTimer.remove(false);
+      if (this.doorWalkTimer) this.doorWalkTimer.remove(false);
+      this.doorHoldTimer = null;
+      this.doorWalkTimer = null;
+      for (const el of [this.lyricEl, this.cinemaLyricEl]) {
+        if (!el) continue;
+        el.textContent = '';
+        el.hidden = true;
+      }
     });
 
     this.ready = true;
@@ -311,50 +367,81 @@ class LevelScene extends Phaser.Scene {
     // Read the slider's CURRENT value rather than hardcoding -- if Hazem adjusted it
     // before this async load pass finished, the old code silently discarded that.
     // loop:false, not true -- disables .seek wrapping back to 0 mid-track, which would
-    // corrupt the level clock (see getLevelElapsed()). Level 1 completes at 60s, well
-    // before the 183.9s track would ever reach its end anyway.
+    // corrupt the shared song clock (see getLevelElapsed()).
     const slider = document.getElementById('music-volume');
     const initialVolume = slider ? parseFloat(slider.value) : 0.5;
     this.music = this.sound.add('theme', { loop: false, volume: initialVolume });
-    // Guard against level1Complete too: without it, a stray keydown after
-    // onLevel1Complete() has paused the music (Codex review caught this -- the keyboard
-    // listener below is a SEPARATE `once` from the pointer one, so if the player only
-    // ever used touch/mouse, that keyboard listener is still armed and can fire after
-    // completion, silently resuming the paused track).
-    const startMusic = () => { if (!this.level1Complete && !this.music.isPlaying) this.music.play(); };
-    if (this.levelClockStart !== null) {
+    // Pointer and keyboard activation listeners are independent, so use a dedicated
+    // successful-start latch: a later unused route must never restart a playing song.
+    // If audio arrived after the fallback clock began, join the existing timeline
+    // instead of rewinding the level to the beginning.
+    const startMusic = () => {
+      if (this.musicStarted || !this.music) return this.musicStarted;
+      const elapsed = this.getLevelElapsed();
+      const duration = this.music.duration;
+      const seek = Number.isFinite(duration) && duration > 0
+        ? Math.min(elapsed, Math.max(0, duration - 0.01))
+        : 0;
+      const played = this.music.play({ seek });
+      if (played) this.musicStarted = true;
+      return played;
+    };
+    if (this.levelClockStart !== null && startMusic()) {
       // The player's first real gesture already happened before this (async) audio
       // load finished -- start immediately rather than waiting for a SECOND gesture
       // that may never come (e.g. a held movement button doesn't re-fire pointerdown/
       // pointerup/keydown). Also caught by the Codex review.
-      startMusic();
-    } else {
+      return;
+    }
+    if (!this.musicStarted) {
       // document, not this.input -- same canvas-vs-DOM-button gap as startLevelClock
-      // above, and same pointerdown/pointerup pointer-type split.
+      // above, and same pointerdown/pointerup pointer-type split. A failed immediate
+      // autoplay attempt leaves the latch unset so either real route can retry.
       onFirstRealGesture(startMusic);
       this.input.keyboard.once('keydown', startMusic);
     }
   }
 
-  // Single sampled source of truth for "how far into Level 1 are we", read once per
-  // update() tick and reused for both the lyric lookup and the completion check (not
-  // two separate live reads that could disagree within the same frame).
+    // Single sampled source of truth for song time, read once per update() tick and
+    // reused for lyric routing and the exterior cutscene anchors.
   getLevelElapsed() {
-    if (this.music && this.music.isPlaying) return this.music.seek;
+    if (this.music && (this.music.isPlaying || this.music.isPaused)) return this.music.seek;
     if (this.levelClockStart !== null) return (this.time.now - this.levelClockStart) / 1000;
     return 0;
   }
 
-  // Named extension point for the real cinema-transition/Level 2 hookup (Hazem's own
-  // future art/work) -- deliberately minimal placeholder for now. Latched: called
-  // exactly once via the level1Complete flag in update(), never re-entered.
-  onLevel1Complete() {
-    if (this.music) this.music.pause();
-    this.movementLocked = true;
-    if (this.lyricEl) {
-      this.lyricEl.textContent = 'to be continued...';
-      this.lyricEl.hidden = false;
+  renderLyrics(elapsed) {
+    const cue = this.lyrics.find((entry) => elapsed >= entry.start && elapsed < entry.end);
+    const activeText = cue ? cue.text : '';
+    const inCinemaWindow = elapsed >= CINEMA_LYRICS_START && elapsed < CINEMA_LYRICS_END;
+    const fading = (this.fadedOut && !this.level2Active) || this.level2Revealing;
+    const bubbleText = !fading && !inCinemaWindow ? activeText : '';
+    const cinemaText = !fading && this.level2Active && inCinemaWindow ? activeText : '';
+
+    // Hide both first on a route change so matching/stale text can never leave both
+    // destinations visible during a seek or a transition.
+    const pairs = [[this.lyricEl, bubbleText], [this.cinemaLyricEl, cinemaText]];
+    for (const [el, text] of pairs) {
+      if (el && !text) el.hidden = true;
     }
+    for (const [el, text] of pairs) {
+      if (!el) continue;
+      const changed = el.textContent !== text;
+      if (changed) el.textContent = text;
+      el.hidden = !text;
+      if (text && el === this.cinemaLyricEl && changed && window.positionCinemaLyrics) {
+        window.positionCinemaLyrics();
+      }
+    }
+  }
+
+  // Which logical panel index contains world position x, given panelX(k) = -k*panelW
+  // spans [-k*panelW, -k*panelW + panelW). Derived and checked against concrete examples
+  // (x=0 -> k=0, x=panelW-1 -> k=0, x=panelW -> k=-1, x=-1 -> k=1). Hoisted out of
+  // updatePanels() into its own method -- onArrive() also needs it, to find which pooled
+  // panel sprite sits at the player's current logical index.
+  indexAtX(x) {
+    return -Math.floor(x / this.cfg.level1.panelW);
   }
 
   // Reconciles the panel sprite pool against whatever logical panel indices the camera
@@ -368,16 +455,12 @@ class LevelScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const camLeft = cam.worldView.x;
     const camRight = camLeft + cam.worldView.width;
-    // indexAtX: which logical panel index contains world position x, given panelX(k) =
-    // -k*panelW spans [-k*panelW, -k*panelW + panelW). Derived and checked against
-    // concrete examples (x=0 -> k=0, x=panelW-1 -> k=0, x=panelW -> k=-1, x=-1 -> k=1).
-    const indexAtX = (x) => -Math.floor(x / panelW);
     // camLeft (smallest visible x) maps to the LARGEST needed k (furthest-left panel);
     // camRight maps to the smallest. +-1 is a one-panel buffer on each side.
-    const kMax = indexAtX(camLeft) + 1;
-    const kMin = indexAtX(camRight) - 1;
+    const kMax = this.indexAtX(camLeft) + 1;
+    const kMin = this.indexAtX(camRight) - 1;
 
-    const spare = this.panelPool.filter((p) => p.index < kMin || p.index > kMax);
+    const spare = this.panelPool.filter((p) => !p.reserved && (p.index < kMin || p.index > kMax));
     let spareI = 0;
     for (let k = kMin; k <= kMax; k++) {
       if (this.panelPool.some((p) => p.index === k)) continue;
@@ -441,6 +524,252 @@ class LevelScene extends Phaser.Scene {
     }
   }
 
+  // Cutscene stage 1: a call comes in at 0:47 while the player keeps walking (see the
+  // cutsceneActive movement branch in update()). One-shot phonePullAnim (character
+  // notices the call, reaches for phone, pulls it out) plays first; on its completion,
+  // the looping phoneReadAnim (phone held at ear) takes over and the DOM phone-panel
+  // overlay slides in.
+  startPhoneCutscene() {
+    const panelW = this.cfg.level1.panelW;
+    const desired = this.player.x - SPEED * 13;
+    const panelLeft = Phaser.Math.Clamp(
+      Math.round((desired - CINEMA_GATE.stopX) / panelW) * panelW,
+      this.worldMinX,
+      this.worldMaxX - panelW
+    );
+    this.cinemaTargetX = panelLeft + CINEMA_GATE.stopX;
+    this.cinemaPanelIndex = this.indexAtX(this.cinemaTargetX);
+    this.reserveCinemaPanel(this.cinemaPanelIndex);
+    this.doorPanelSprite = this.panelPool.find((p) => p.index === this.cinemaPanelIndex).sprite;
+
+    // The cutscene's auto-walk must take over THIS tick, no matter what gesture (if
+    // any) was mid-playback when 0:47 hit -- "he never stops moving" is the whole point
+    // of the phone-pull/phone-read sheets. Force any in-progress gesture to end right
+    // now (mirroring the dizzy cleanup in startGesture()'s own delayedCall) so the very
+    // next update() tick takes the cutsceneActive branch, not the gesture branch.
+    if (this.gesture === 'dizzy') {
+      this.dizzyHearts.setVisible(false);
+      this.dizzyHearts.anims.stop();
+    }
+    this.gesture = null;
+    this.player.anims.play('phonePullAnim', true);
+    this.phonePullCompleteHandler = () => {
+      this.phonePullCompleteHandler = null;
+      if (!this.isPhonePresentationCurrent()) return;
+      this.player.anims.play('phoneReadAnim', true);
+      this.showPhonePanel();
+    };
+    this.player.once('animationcomplete-phonePullAnim', this.phonePullCompleteHandler);
+  }
+
+  // Places (or converts an existing pooled entry into) the cinema door-closed panel at a fixed
+  // world index, immediately -- not at the moment of arrival -- so it scrolls into view like any
+  // other panel as the camera follows the player during the cutscene, instead of appearing out of
+  // nowhere. `reserved: true` protects it from updatePanels()'s recycling (see that method below).
+  reserveCinemaPanel(k) {
+    const panelW = this.cfg.level1.panelW;
+    let entry = this.panelPool.find((p) => p.index === k);
+    if (!entry) {
+      entry = { sprite: this.add.image(-k * panelW, 0, 'panel_door_closed').setOrigin(0, 0).setDepth(-1), index: k };
+      this.panelPool.push(entry);
+    } else {
+      entry.sprite.setTexture('panel_door_closed');
+    }
+    entry.reserved = true;
+  }
+
+  isPhonePresentationCurrent() {
+    return this.cutsceneActive && !this.arrived && !this.fadedOut && !this.level2Active;
+  }
+
+  cancelPhonePresentation() {
+    for (const timer of this.phoneTimers || []) {
+      if (timer) timer.remove(false);
+    }
+    this.phoneTimers = [];
+
+    if (this.phonePullCompleteHandler && this.player) {
+      this.player.off('animationcomplete-phonePullAnim', this.phonePullCompleteHandler);
+      this.phonePullCompleteHandler = null;
+    }
+
+    const panel = document.getElementById('phone-panel');
+    const img = document.getElementById('phone-screen-img');
+    const msg = document.getElementById('phone-message-text');
+    if (img && this.phoneImageLoadHandler) {
+      img.removeEventListener('load', this.phoneImageLoadHandler);
+      this.phoneImageLoadHandler = null;
+    }
+    if (panel) panel.classList.remove('phone-panel-visible');
+    if (msg) msg.hidden = true;
+  }
+
+  showPhonePanel() {
+    const panel = document.getElementById('phone-panel');
+    const img = document.getElementById('phone-screen-img');
+    const msg = document.getElementById('phone-message-text');
+    if (!panel || !img || !msg || !this.isPhonePresentationCurrent()) return;
+    img.src = 'assets/game/sms_stage_2_select.png';
+    msg.hidden = true;
+    panel.classList.add('phone-panel-visible'); // triggers the CSS slide-in transition
+    // Sub-beat choreography runs on Phaser's own scene timer (delayedCall), anchored to
+    // when the cutscene actually started -- NOT on getLevelElapsed()/the song clock.
+    // This is deliberate: Phaser's timer pauses/resumes correctly with the game loop
+    // itself, so it can't drift against a stalled/buffering audio track the way a
+    // getLevelElapsed()-driven sub-timer could. Only cutscene start at 0:47 and doors
+    // at 1:03 are song-clock anchors; arrival is positional, while the later hold,
+    // doorway walk, and fades use scene time.
+    const schedulePhoneStep = (delay, callback) => {
+      const timer = this.time.delayedCall(delay, () => {
+        if (!this.isPhonePresentationCurrent()) return;
+        callback();
+      });
+      this.phoneTimers.push(timer);
+    };
+
+    schedulePhoneStep(400, () => { img.src = 'assets/game/sms_stage_1_notification.png'; });
+    schedulePhoneStep(400 + 1500, () => { img.src = 'assets/game/sms_stage_3_opening.png'; });
+    schedulePhoneStep(400 + 1500 + 1500, () => {
+      img.src = 'assets/game/sms_stage_4_blank.png';
+      const revealMessage = () => {
+        if (!this.isPhonePresentationCurrent()) return;
+        msg.hidden = false;
+      };
+      if (img.complete && img.naturalWidth > 0) {
+        revealMessage();
+      } else {
+        this.phoneImageLoadHandler = () => {
+          this.phoneImageLoadHandler = null;
+          revealMessage();
+        };
+        img.addEventListener('load', this.phoneImageLoadHandler, { once: true });
+      }
+    });
+    schedulePhoneStep(400 + 1500 + 1500 + 1000 + 4000, () => {
+      panel.classList.remove('phone-panel-visible');
+    });
+    schedulePhoneStep(400 + 1500 + 1500 + 1000 + 4000 + 400, () => {
+      if (this.phoneImageLoadHandler) {
+        img.removeEventListener('load', this.phoneImageLoadHandler);
+        this.phoneImageLoadHandler = null;
+      }
+      msg.hidden = true;
+      this.player.anims.play('walkAnim', true);
+    });
+  }
+
+  // Cutscene stage 2, ~1:00: the auto-walk has brought the player to the cinema. Freeze
+  // panel recycling (updatePanels() would otherwise keep swapping this panel's texture
+  // back to a plain background one as the camera moves) and swap the panel currently
+  // under the player to the closed-doors art.
+  onArrive() {
+    this.cancelPhonePresentation();
+    this.panelsFrozen = true;
+    this.holdPosition = true;
+    this.walkingThroughDoor = false;
+    this.player.anims.play('idleAnim', true);
+    this.resizeBodyForTexture();
+    this.player.body.allowGravity = false;
+    this.player.body.reset(this.cinemaTargetX, CINEMA_GATE.stopY);
+  }
+
+  // Cutscene stage 3, ~1:03: doors swap open.
+  onDoorsOpen() {
+    if (this.doorPanelSprite) this.doorPanelSprite.setTexture('panel_door_open');
+    this.doorHoldTimer = this.time.delayedCall(CINEMA_GATE.holdMs, () => {
+      if (!this.cutsceneActive || this.fadedOut || this.level2Active) return;
+      this.holdPosition = false;
+      this.walkingThroughDoor = true;
+      this.player.anims.play('walkAnim', true);
+      this.resizeBodyForTexture();
+      this.player.body.reset(this.cinemaTargetX, CINEMA_GATE.stopY);
+      this.player.setFlipX(true);
+      this.player.setVelocity(
+        -SPEED,
+        (CINEMA_GATE.insideY - CINEMA_GATE.stopY) / (CINEMA_GATE.walkMs / 1000)
+      );
+      this.doorWalkTimer = this.time.delayedCall(CINEMA_GATE.walkMs, () => {
+        if (!this.cutsceneActive || !this.walkingThroughDoor || this.fadedOut || this.level2Active) return;
+        this.player.body.reset(
+          this.doorPanelSprite.x + CINEMA_GATE.insideX,
+          CINEMA_GATE.insideY
+        );
+        this.walkingThroughDoor = false;
+        this.holdPosition = true;
+        this.onFadeOut();
+      });
+    });
+  }
+
+  // Fade to the page's own background color after the complete hold/walk staging.
+  // Music deliberately continues at its current volume through both visual fades.
+  onFadeOut() {
+    if (this.fadedOut) return;
+    this.fadedOut = true;
+    this.cancelPhonePresentation();
+    this.walkingThroughDoor = false;
+    this.holdPosition = true;
+    this.player.setVelocity(0, 0);
+    this.renderLyrics(this.getLevelElapsed());
+    this.cameras.main.once('camerafadeoutcomplete', () => this.enterLevel2());
+    this.cameras.main.fadeOut(600, 10, 14, 26); // matches the page's #0a0e1a background, not pure black
+  }
+
+  // Install a fixed one-screen interior while the camera is fully faded out. This stays
+  // on the same LevelScene/'Level' key, preserving the existing controls and volume hook.
+  enterLevel2() {
+    if (this.level2Active) return;
+    this.cancelPhonePresentation();
+    this.panelPool.forEach((p) => p.sprite.setVisible(false));
+    if (this.doorPanelSprite) this.doorPanelSprite.setVisible(false);
+
+    for (const projectile of this.projectiles) projectile.sprite.destroy();
+    this.projectiles = [];
+    this.gesture = null;
+    this.dizzyHearts.setVisible(false);
+    this.dizzyHearts.anims.stop();
+
+    const { panelW, panelH } = this.cfg.level1;
+    const interiorGroundY = 744;
+    this.worldMinX = 0;
+    this.worldMaxX = panelW;
+    this.physics.world.setBounds(0, 0, panelW, panelH);
+    this.cameras.main.stopFollow();
+    this.cameras.main.setFollowOffset(0, 0);
+    this.cameras.main.setBounds(0, 0, panelW, panelH);
+    this.cameras.main.centerOn(panelW / 2, panelH / 2);
+    this.level2Bg = this.add.image(0, 0, 'level2_bg').setOrigin(0, 0).setDepth(-1);
+
+    this.ground.setPosition(panelW / 2, interiorGroundY + 20);
+    this.ground.setSize(panelW, 40);
+    this.ground.body.updateFromGameObject();
+    this.player.anims.play('idleAnim', true);
+    this.resizeBodyForTexture();
+    this.player.body.allowGravity = true;
+    this.player.body.reset(panelW / 2, interiorGroundY - 2);
+    this.player.setVelocity(0, 0);
+    this.player.setCollideWorldBounds(true);
+
+    this.level2Active = true;
+    this.level2Revealing = true;
+    this.holdPosition = false;
+    this.walkingThroughDoor = false;
+    this.cutsceneActive = false;
+    this.panelsFrozen = true;
+
+    const touch = document.getElementById('touch-controls');
+    if (touch) touch.style.removeProperty('display');
+
+    this.renderLyrics(this.getLevelElapsed());
+    this.cameras.main.once('camerafadeincomplete', () => {
+      if (!this.level2Active) return;
+      this.level2Revealing = false;
+      this.renderLyrics(this.getLevelElapsed());
+      if (window.positionCinemaLyrics) window.positionCinemaLyrics();
+    });
+    this.cameras.main.fadeIn(600, 10, 14, 26);
+  }
+
   spawnProjectile(type) {
     const isHeart = type === 'heart';
     const texKey = isHeart ? 'heart_icon' : 'flowers_icon';
@@ -465,38 +794,48 @@ class LevelScene extends Phaser.Scene {
   update(time, delta) {
     if (!this.ready) return;
 
-    this.updatePanels();
+    if (!this.level2Active && !this.panelsFrozen) this.updatePanels();
 
-    // Single sampled value, reused below for both the lyric lookup and the completion
-    // check -- see the comment on getLevelElapsed().
+    // Single sampled value, reused below for both the lyric lookup and the cutscene
+    // stage checks -- see the comment on getLevelElapsed().
     const elapsed = this.getLevelElapsed();
 
-    if (!this.level1Complete) {
-      if (elapsed >= 60) {
-        this.level1Complete = true; // latched -- onLevel1Complete() runs exactly once
-        this.onLevel1Complete();
-      } else if (this.lyricEl) {
-        let activeText = '';
-        for (const cue of this.lyrics) {
-          if (elapsed >= cue.start && elapsed < cue.end) { activeText = cue.text; break; }
-        }
-        // Only touch the DOM when the selected cue actually changes -- and this full
-        // re-scan every tick (cheap at 54 cues) is deliberately NOT a forward-only
-        // pointer, which would break on a backward seek or a level restart.
-        if (activeText !== this._lastLyricText) {
-          this.lyricEl.textContent = activeText;
-          this.lyricEl.hidden = !activeText;
-          this._lastLyricText = activeText;
-        }
-      }
+    if (!this.level2Active && !this.cutsceneActive && !this.fadedOut && elapsed >= 47) {
+      // This is now the ONLY place that flips cutsceneActive true -- everything below
+      // (the onArrive/onDoorsOpen/onFadeOut stage checks and the movement branch) reacts
+      // to it, none of them set it.
+      this.cutsceneActive = true;
+      this.startPhoneCutscene();
     }
+
+    // Arrival remains positional and the doors retain their song-clock anchor. The
+    // subsequent hold, walk, and fade are scene-timed sub-beats owned by onDoorsOpen().
+    if (!this.level2Active && this.cutsceneActive) {
+      if (!this.arrived && this.player.x <= this.cinemaTargetX) {
+        this.arrived = true;
+        // Codex diff-review catch: a bare `this.player.x = ...` only moves the GameObject's
+        // Transform -- the Arcade Physics Body keeps its own internally-tracked position/prev
+        // vectors and is not automatically re-synced from a manual transform change, so the
+        // overshoot position (whatever the body's own step already computed this frame) can
+        // silently persist/reassert itself, undoing the snap. body.reset(x, y) is Phaser's own
+        // documented API for exactly this (confirmed against the real Arcade Body source): it
+        // syncs the GameObject AND the body's position/prev/prevFrame together, and also zeroes
+        // velocity (via its internal stop()) -- harmless here since holdPosition's branch below
+        // sets velocity 0 every frame anyway once onArrive() flips it.
+        this.onArrive();
+      }
+      if (this.arrived && !this.doorsOpened && elapsed >= 63) { this.doorsOpened = true; this.onDoorsOpen(); }
+    }
+
+    this.renderLyrics(elapsed);
 
     const onFloor = this.player.body.onFloor();
 
     // Gestures are a deliberate stationary beat (GAME_PLAN.md Milestone 3: "press a
-    // button, character performs a scripted gesture") -- only start one when grounded
-    // and no gesture is already playing; skip movement/jump entirely while one runs.
-    if (!this.gesture && onFloor) {
+    // button, character performs a scripted gesture") -- only start one when grounded,
+    // no gesture is already playing, and the cutscene hasn't taken over movement; skip
+    // movement/jump entirely while one runs.
+    if (!this.level2Revealing && !this.gesture && onFloor && !this.cutsceneActive) {
       if (Phaser.Input.Keyboard.JustDown(this.keyL) || this.touchState.heart) this.startGesture('heart');
       else if (Phaser.Input.Keyboard.JustDown(this.keyF) || this.touchState.flowers) this.startGesture('flowers');
       else if (Phaser.Input.Keyboard.JustDown(this.keyD) || this.touchState.dizzy) this.startGesture('dizzy');
@@ -507,18 +846,39 @@ class LevelScene extends Phaser.Scene {
     this.touchState.flowers = false;
     this.touchState.dizzy = false;
 
-    if (this.gesture) {
+    if (this.level2Revealing) {
+      this.player.setVelocityX(0);
+      this.player.anims.play('idleAnim', true);
+    } else if (this.gesture) {
       this.player.setVelocityX(0);
       if (this.gesture === 'dizzy') {
         this.dizzyHearts.x = this.player.x;
         this.dizzyHearts.y = this.player.y - this.player.displayHeight + 15;
       }
-    } else if (this.movementLocked) {
-      // Enforced HERE, every tick, inside the real velocity branch -- not a one-time
-      // setVelocityX(0) at completion, which the next tick's normal movement code would
-      // just overwrite right back.
-      this.player.setVelocityX(0);
-      if (onFloor) this.player.anims.play('idleAnim', true);
+    } else if (this.cutsceneActive) {
+      // Auto-drive the player forward through the whole phone-call sequence -- "keeps
+      // walking the entire time" is literal, not a side effect of a frozen/idle
+      // animation. Direction matches the level's existing forward-walking convention
+      // (see the RTL camera-offset comment above -- negative X / setFlipX(true) is
+      // "into the space he's walking into"). Deliberately NO anims.play() call in this
+      // branch -- texture swaps for this stage are driven exclusively by
+      // startPhoneCutscene()'s own anims.play()/delayedCall chain. Letting this branch
+      // also call anims.play() every tick would silently overwrite the one-shot
+      // phonePullAnim the very next frame (the exact bug a prior review caught before
+      // this branch existed).
+      if (this.walkingThroughDoor) {
+        // The doorway timer set the straight-line velocity once with gravity disabled.
+        // Do not reset either component here; only preserve the intended animation.
+        this.player.anims.play('walkAnim', true);
+      } else if (this.holdPosition) {
+        // Stand in place in front of the door panel for the doors-open/fade beat
+        // instead of continuing to drift past it -- see onArrive().
+        this.player.setVelocity(0, 0);
+        this.player.anims.play('idleAnim', true);
+      } else {
+        this.player.setVelocityX(-SPEED);
+        this.player.setFlipX(true);
+      }
     } else {
       const left = this.cursors.left.isDown || this.keyA.isDown || this.touchState.left;
       const right = this.cursors.right.isDown || this.touchState.right;
@@ -564,6 +924,23 @@ class LevelScene extends Phaser.Scene {
     // Last: the texture is now whatever this tick actually selected. See the comment on
     // resizeBodyForTexture() -- calling it before this point reads a stale frame.
     this.resizeBodyForTexture();
+
+    if (this.level2Active) {
+      const halfWidth = this.player.displayWidth / 2;
+      const clampedX = Phaser.Math.Clamp(
+        this.player.x,
+        halfWidth,
+        this.cfg.level1.panelW - halfWidth
+      );
+      if (clampedX !== this.player.x) {
+        const velocityY = this.player.body.velocity.y;
+        const animationKey = this.player.anims.currentAnim ? this.player.anims.currentAnim.key : null;
+        const animationWasPlaying = this.player.anims.isPlaying;
+        this.player.body.reset(clampedX, this.player.y);
+        this.player.setVelocity(0, velocityY);
+        if (animationWasPlaying && animationKey) this.player.anims.play(animationKey, true);
+      }
+    }
   }
 }
 

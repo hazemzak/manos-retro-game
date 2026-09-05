@@ -95,6 +95,30 @@
       "contentHeight": 30,
       "contentCenterX": 172,
       "contentCenterY": 24
+    },
+    "phone_pull": {
+      "file": "assets/game/manos_phone_pull.png",
+      "frameWidth": 336,
+      "frameHeight": 376,
+      "frames": 8,
+      "contentLeft": 75,
+      "contentTop": 18,
+      "contentWidth": 204,
+      "contentHeight": 355,
+      "contentCenterX": 176,
+      "contentCenterY": 195
+    },
+    "phone_read": {
+      "file": "assets/game/manos_phone_read.png",
+      "frameWidth": 336,
+      "frameHeight": 376,
+      "frames": 8,
+      "contentLeft": 75,
+      "contentTop": 17,
+      "contentWidth": 204,
+      "contentHeight": 356,
+      "contentCenterX": 176,
+      "contentCenterY": 194
     }
   },
   "level1": {

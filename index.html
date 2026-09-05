@@ -123,16 +123,19 @@
 
   /* GTA2-style "mission text" lyric bubble -- boxed, hard-edged (no border-radius, no
      blur/shadow softness -- that would read as modern UI, not 8-bit), dark solid
-     background. Positioned via JS against the actual rendered canvas rect (see script
-     below), not just page-relative CSS -- Phaser's Scale.FIT can letterbox, and a naive
-     page-relative "top-center" can land in a letterbox bar rather than over the visible
-     game on an unusual aspect ratio. Horizontal centering IS safe as plain CSS, since
-     Scale.CENTER_BOTH means canvas-center and page-center already coincide. */
+     background. Positioned via JS against the actual rendered canvas rect (see
+     positionLyricBubble() below) at Hazem's calibrated coordinates (50.3%/86.3% of the
+     rendered canvas rect) -- Phaser's Scale.FIT can letterbox, and a naive page-relative
+     placement can land in a letterbox bar rather than over the visible game on an
+     unusual aspect ratio. The left/top percentages below are only a pre-measurement
+     fallback before JS runs; horizontal centering via transform stays plain CSS. */
   #lyric-bubble {
     position: fixed;
-    left: 50%;
+    left: 50.3%;
+    top: 86.3%;
+    bottom: auto;
     transform: translateX(-50%);
-    bottom: 20px; /* overwritten by JS once the canvas rect is known */
+    margin: 0;
     z-index: 10;
     max-width: min(80vw, 640px);
     box-sizing: border-box;
@@ -141,7 +144,7 @@
     border: 3px solid #f4e9d8;
     color: #f4e9d8;
     font-family: 'ManosLyrics', sans-serif;
-    font-size: 18px;
+    font-size: 22px;
     text-align: center;
     line-height: 1.4;
     /* Arabic lyric text -- must render right-to-left, the page itself is declared LTR/
@@ -154,14 +157,97 @@
     text-shadow: none; /* flat, no soft shadow -- reads as 8-bit, not modern UI */
   }
   #lyric-bubble[hidden] { display: none; }
-  /* Real-phone feedback: base+92px margin read as sitting too high/"weird" on touch --
-     the bubble is horizontally centered in the gap BETWEEN the two side button clusters
-     (#touch-controls uses space-between), so it was never actually over the buttons and
-     didn't need this much clearance. Cut to 28px so it sits low, near the true bottom
-     edge -- real movie-subtitle placement -- while still clearing the button row. */
-  @media (hover: none) and (pointer: coarse) {
-    #lyric-bubble { margin-bottom: 28px; }
+
+  /* GTA5-style phone-screen overlay -- slides in from the left during the 0:47 phone-call
+     cutscene (see src/game.js's showPhonePanel()). Position now comes from JS (see
+     positionPhoneOverlays() below), anchored against the real rendered canvas rect the
+     same way #lyric-bubble is -- this game already hit the naive-page-relative-CSS bug
+     once for that element. aspect-ratio reserves the panel's height before the stage
+     image has finished loading (matches the 480x1101 source art). */
+  #phone-panel {
+    position: fixed;
+    transform: translateX(calc(-100% - var(--phone-left, 300px) - 1px));
+    transition: transform 0.4s ease-out;
+    z-index: 11; /* above #lyric-bubble/touch-controls */
+    pointer-events: none;
+    aspect-ratio: 480 / 1101;
   }
+  #phone-panel.phone-panel-visible {
+    transform: translateX(0);
+  }
+  #phone-panel img { display: block; width: 100%; height: auto; }
+  /* Sender + message text now live INSIDE the phone LCD as a CHILD of #phone-panel
+     (position:absolute against the panel's own box), so they ride the panel's existing
+     slide-in/out transform automatically -- no separate canvas-relative JS math needed.
+     Percentages are the measured safe LCD content rectangle inside
+     sms_stage_4_blank.png (480x1101 source): x=88,y=344,w=304,h=160. */
+  #phone-message-text {
+    position: absolute;
+    left: 18.333333%;
+    top: 31.244323%;
+    width: 63.333333%;
+    height: 14.532243%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #2b3521;
+    font-family: 'ManosLyrics', sans-serif;
+    font-size: var(--phone-message-size, 12px);
+    line-height: 1.3;
+    text-align: right;
+    direction: rtl;
+    unicode-bidi: isolate;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    text-shadow: none;
+  }
+  #phone-message-text[hidden] { display: none; }
+  .phone-sender { font-size: 0.833333em; white-space: nowrap; }
+  .phone-body { white-space: nowrap; }
+  /* Verified live (foreman, claude-in-chrome, .foreman/scratch/rtl_bidi_test.html): a
+     naive direction:rtl container mirrors "<3" into "3>" -- angle-bracket mirroring is a
+     real Unicode Bidi property, not an image-export artifact, so this reproduces even in
+     live DOM text, not just the baked sms_stage_4_opened.png image this whole DOM-overlay
+     approach exists to avoid. Isolating just this token in an explicit LTR context is the
+     fix -- confirmed rendering correctly (un-mirrored) in a real Chrome tab before being
+     added here. */
+  .ltr-iso { unicode-bidi: isolate; direction: ltr; display: inline-block; }
+
+  /* In-world cinema-screen lyric overlay -- DOM text over the illuminated screen in the
+     Level 2 cinema interior, shown for real song lyrics during the song-clock
+     ~60s-118.87s window (see src/game.js's renderLyrics()/positionCinemaLyrics() call).
+     Positioned/sized via JS (see positionCinemaLyrics() below) against the measured
+     screen inset in the 1376x768 design canvas. Upper placement is deliberate: it keeps
+     clear of a jumping player (see plan geometry) without an occlusion mask. */
+  #cinema-screen-lyrics {
+    position: fixed;
+    z-index: 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #2b241b;
+    font-family: 'ManosLyrics', sans-serif;
+    font-size: var(--cinema-lyric-size, 24px);
+    line-height: 1.25;
+    text-align: center;
+    direction: rtl;
+    unicode-bidi: isolate;
+    white-space: normal;
+    overflow-wrap: normal;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    text-shadow: none;
+  }
+  #cinema-screen-lyrics[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -183,6 +269,14 @@
   </div>
 </div>
 <div id="lyric-bubble" hidden></div>
+<div id="cinema-screen-lyrics" lang="ar" dir="rtl" hidden></div>
+<div id="phone-panel">
+  <img id="phone-screen-img" src="" alt="" />
+  <div id="phone-message-text" lang="ar" dir="rtl" hidden>
+    <div class="phone-sender">♥ من مانوس</div>
+    <div class="phone-body"><span class="ltr-iso">&lt;3</span> : يلا سيما</div>
+  </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 <script src="src/game.js"></script>
 <script>
@@ -193,44 +287,120 @@
 
   // Position the lyric bubble against the actual RENDERED canvas rect, not just a
   // fixed page offset -- Phaser.Scale.FIT can letterbox on unusual aspect ratios, and
-  // a naive page-relative "bottom: 20px" can land in a letterbox bar below the visible
-  // game instead of over it. Anchored from the canvas's BOTTOM edge (subtitle-style,
-  // not the earlier top placement) -- distance-from-viewport-bottom, not top.
+  // a naive page-relative placement can land in a letterbox bar rather than over the
+  // visible game. Hazem's calibrated position: 50.3% across / 86.3% down the rendered
+  // canvas rect, held constant for the whole song (visibility is controlled separately
+  // by src/game.js's renderLyrics()).
+  const LYRIC_BUBBLE_RECT = { centerXPct: 0.503, topPct: 0.863 };
   function positionLyricBubble() {
     const canvas = window.game && window.game.canvas;
     const bubble = document.getElementById('lyric-bubble');
     if (!canvas || !bubble) return;
     const rect = canvas.getBoundingClientRect();
-    // document.documentElement.clientHeight, not window.innerHeight or
-    // visualViewport.height: `position:fixed` elements (this bubble included) are
-    // positioned against the LAYOUT viewport, and clientHeight of the root element IS
-    // that layout-viewport height by definition -- the correct coordinate space to
-    // subtract `rect.bottom` (also a layout-viewport-relative value, from
-    // getBoundingClientRect) against. A Codex review pass caught that an earlier version
-    // of this fix used `visualViewport.height` instead, which measures a DIFFERENT box
-    // (the visual viewport) that only coincides with the layout viewport absent
-    // pinch-zoom/on-screen-keyboard offsets -- mixing the two coordinate spaces could
-    // push the bubble the wrong distance, potentially off-screen, exactly the class of
-    // bug already hit once here (see the -54.75px incident in the build log).
-    const viewportHeight = document.documentElement.clientHeight;
-    // +56 (was +16): real-phone feedback said the desktop placement hugged the canvas
-    // bottom edge too closely -- bumped up so it reads as placed a little higher, not
-    // glued to the edge. Touch devices layer the media-query margin-bottom on top of
-    // this same base value (see below).
-    bubble.style.bottom = (viewportHeight - rect.bottom + 56) + 'px';
+    bubble.style.left = (rect.left + LYRIC_BUBBLE_RECT.centerXPct * rect.width) + 'px';
+    bubble.style.top = (rect.top + LYRIC_BUBBLE_RECT.topPct * rect.height) + 'px';
+    bubble.style.bottom = 'auto';
   }
-  window.addEventListener('resize', positionLyricBubble);
-  // visualViewport's own events are used only as a WHEN-to-recheck trigger here (it
+  // Phone-panel placement, calibrated against the design canvas (1376x768) and
+  // converted against the real rendered canvas rect -- same reasoning as
+  // positionLyricBubble() above (Phaser.Scale.FIT letterboxing), but top/left-anchored
+  // rather than bottom-anchored, so no extra viewport-height math is needed here.
+  // #phone-message-text is now a CHILD of #phone-panel (percentage-positioned against
+  // the panel's own box in CSS) so it rides the panel's slide transform automatically --
+  // the only thing it still needs from here is its font size, which must scale WITH the
+  // phone (unlike the lyric bubble) to stay physically inside the drawn LCD.
+  const PHONE_PANEL_RECT = { leftPct: 0.085, topPct: 0.629, widthPct: 0.102 };
+
+  function positionPhoneOverlays() {
+    const canvas = window.game && window.game.canvas;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const panel = document.getElementById('phone-panel');
+    if (panel) {
+      const leftPx = rect.left + PHONE_PANEL_RECT.leftPct * rect.width;
+      panel.style.left = leftPx + 'px';
+      panel.style.top = (rect.top + PHONE_PANEL_RECT.topPct * rect.height) + 'px';
+      panel.style.width = (PHONE_PANEL_RECT.widthPct * rect.width) + 'px';
+      // CODEX FIX (Item 3, #1): expose the resting `left` as a custom property so the CSS
+      // hidden-state transform (below) can compute an offset that's always far enough past the
+      // TRUE page edge, regardless of what this JS-computed `left` actually resolves to -- a
+      // fixed percentage like translateX(-105%) is relative to the element's OWN width, not to
+      // how far `left` already sits from the real edge, and can leave it only partially hidden.
+      panel.style.setProperty('--phone-left', leftPx + 'px');
+      // Native design size is 12px (body) / 10px (sender, via the .phone-sender 0.833em
+      // rule) at the 1376px-wide design canvas -- scale with the actual rendered width.
+      panel.style.setProperty('--phone-message-size', (12 * rect.width / 1376) + 'px');
+    }
+  }
+
+  // In-world cinema-screen lyric overlay -- shown for real song lyrics once Level 2's
+  // interior is revealed (src/game.js owns visibility/text via renderLyrics()). Rect is
+  // the measured illuminated-screen inset in the 1376x768 design canvas.
+  const CINEMA_LYRIC_RECT = { x: 514, y: 296, width: 348, height: 64 };
+  function positionCinemaLyrics() {
+    const canvas = window.game && window.game.canvas;
+    const el = document.getElementById('cinema-screen-lyrics');
+    if (!canvas || !el) return;
+    const rect = canvas.getBoundingClientRect();
+    const sx = rect.width / 1376;
+    const sy = rect.height / 768;
+    el.style.left = (rect.left + CINEMA_LYRIC_RECT.x * sx) + 'px';
+    el.style.top = (rect.top + CINEMA_LYRIC_RECT.y * sy) + 'px';
+    el.style.width = (CINEMA_LYRIC_RECT.width * sx) + 'px';
+    el.style.height = (CINEMA_LYRIC_RECT.height * sy) + 'px';
+    // Shrink-to-fit: start at 24 design px, step down 1 design px at a time until the
+    // text fits both box dimensions (1px rounding tolerance), floor at 18 design px --
+    // if it still doesn't fit at 18px, leave it there rather than looping forever.
+    // Skipped while hidden: a hidden element has zero layout size, so fitting would
+    // measure nothing meaningful -- src/game.js calls this hook again right after it
+    // un-hides the element with new text.
+    if (el.hidden || !el.textContent) {
+      el.style.setProperty('--cinema-lyric-size', (24 * sx) + 'px');
+      return;
+    }
+    let designSize = 24;
+    el.style.setProperty('--cinema-lyric-size', (designSize * sx) + 'px');
+    while (
+      designSize > 18 &&
+      (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)
+    ) {
+      designSize -= 1;
+      el.style.setProperty('--cinema-lyric-size', (designSize * sx) + 'px');
+    }
+  }
+  // Exposed so src/game.js can call this directly on a cue change/first reveal instead
+  // of waiting up to 500ms for the periodic fallback below.
+  window.positionCinemaLyrics = positionCinemaLyrics;
+
+  function positionAllOverlays() {
+    positionLyricBubble();
+    positionPhoneOverlays();
+    positionCinemaLyrics();
+  }
+
+  window.addEventListener('resize', positionAllOverlays);
+  // visualViewport's own events are used only as a WHEN-to-recheck trigger here -- it
   // fires more promptly than window's resize for some mobile toolbar-driven viewport
-  // changes) -- the actual measurement inside positionLyricBubble() is clientHeight,
-  // not visualViewport.height, for the coordinate-space reason explained above.
+  // changes.
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', positionLyricBubble);
-    window.visualViewport.addEventListener('scroll', positionLyricBubble);
+    window.visualViewport.addEventListener('resize', positionAllOverlays);
+    window.visualViewport.addEventListener('scroll', positionAllOverlays);
   }
   // Cheap fallback net: the canvas doesn't exist until Phaser's Game boots, and this
   // also catches the rare case of no visualViewport support at all.
-  setInterval(() => { if (window.game && window.game.canvas) positionLyricBubble(); }, 500);
+  setInterval(() => { if (window.game && window.game.canvas) { positionAllOverlays(); } }, 500);
+  // Custom font metrics (ManosLyrics) change text layout once the font actually loads --
+  // re-run everything once it's ready rather than waiting on the 500ms fallback.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(positionAllOverlays);
+  }
+  // A phone stage-image swap (see showPhonePanel() in src/game.js) doesn't change any
+  // measurement made here, but re-running immediately on load avoids a visible
+  // stale-position frame between the swap and the next 500ms fallback tick.
+  const phoneScreenImg = document.getElementById('phone-screen-img');
+  if (phoneScreenImg) {
+    phoneScreenImg.addEventListener('load', positionAllOverlays);
+  }
 </script>
 </body>
 </html>
