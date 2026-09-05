@@ -154,13 +154,13 @@
     text-shadow: none; /* flat, no soft shadow -- reads as 8-bit, not modern UI */
   }
   #lyric-bubble[hidden] { display: none; }
-  /* On touch devices #touch-controls occupies the bottom strip (64px buttons + 20px
-     padding + safe-area) -- push the subtitle bubble up to clear it, rather than
-     overlapping the gesture buttons. margin-bottom on a fixed+bottom-positioned element
-     still pushes it further from the bottom edge (the JS-set `bottom` anchors the
-     margin box), no extra JS needed for this. */
+  /* Real-phone feedback: base+92px margin read as sitting too high/"weird" on touch --
+     the bubble is horizontally centered in the gap BETWEEN the two side button clusters
+     (#touch-controls uses space-between), so it was never actually over the buttons and
+     didn't need this much clearance. Cut to 28px so it sits low, near the true bottom
+     edge -- real movie-subtitle placement -- while still clearing the button row. */
   @media (hover: none) and (pointer: coarse) {
-    #lyric-bubble { margin-bottom: 92px; }
+    #lyric-bubble { margin-bottom: 28px; }
   }
 </style>
 </head>
@@ -213,7 +213,11 @@
     // push the bubble the wrong distance, potentially off-screen, exactly the class of
     // bug already hit once here (see the -54.75px incident in the build log).
     const viewportHeight = document.documentElement.clientHeight;
-    bubble.style.bottom = (viewportHeight - rect.bottom + 16) + 'px';
+    // +56 (was +16): real-phone feedback said the desktop placement hugged the canvas
+    // bottom edge too closely -- bumped up so it reads as placed a little higher, not
+    // glued to the edge. Touch devices layer the media-query margin-bottom on top of
+    // this same base value (see below).
+    bubble.style.bottom = (viewportHeight - rect.bottom + 56) + 'px';
   }
   window.addEventListener('resize', positionLyricBubble);
   // visualViewport's own events are used only as a WHEN-to-recheck trigger here (it
