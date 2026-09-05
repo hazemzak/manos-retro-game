@@ -6,6 +6,35 @@ const JUMP_VELOCITY = -750;
 const GRAVITY_Y = 1800;
 const PROJECTILE_SPEED = 700;
 
+// Android Chrome supports the in-tab Fullscreen API; iOS Safari does not (verified
+// current, Sept 2026 -- WebKit has never implemented requestFullscreen outside <video>,
+// Add to Home Screen is the only real fullscreen path there, handled separately via
+// index.html's manifest/apple-mobile-web-app-capable tags). Must be called synchronously
+// from inside a real user-gesture handler or every browser rejects it; checked for
+// existence first and its rejection swallowed quietly since a no-op here is expected
+// and correct on most devices, not an error.
+function requestFullscreenOnce() {
+  if (document.fullscreenElement) return;
+  const el = document.documentElement;
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!fn) return;
+  const result = fn.call(el);
+  if (result && typeof result.catch === 'function') result.catch(() => {});
+}
+
+// Real user-activation is event-type-AND-pointer-type-specific (verified against MDN's
+// current activation-triggering-event list, Sept 2026): `pointerdown` only counts when
+// `pointerType` is "mouse"; for touch/pen it's `pointerup` (or `touchend`) that counts --
+// a touch `pointerdown` carries NO real activation at all. Registering only `pointerdown`
+// (an earlier pass here) would silently fail to unlock audio/fullscreen from a genuine
+// first touch tap on a real phone -- the exact bug this whole file exists to fix.
+// Listening to both event types covers every pointer type; every caller below already
+// no-ops safely if invoked twice (see their own internal guards).
+function onFirstRealGesture(fn) {
+  document.addEventListener('pointerdown', fn, { once: true });
+  document.addEventListener('pointerup', fn, { once: true });
+}
+
 class LevelScene extends Phaser.Scene {
   constructor() {
     super('Level');
@@ -193,8 +222,20 @@ class LevelScene extends Phaser.Scene {
     // independent of setupMusic()/the audio load succeeding.
     this.levelClockStart = null;
     const startLevelClock = () => { if (this.levelClockStart === null) this.levelClockStart = this.time.now; };
-    this.input.once('pointerdown', startLevelClock);
+    // document, not this.input: Phaser's InputPlugin only receives pointer events that
+    // land on the game CANVAS. The on-screen touch-control buttons (#btn-left etc.) are
+    // separate DOM elements outside the canvas with their own pointerdown handlers
+    // (setupTouchControls() below) -- a mobile player's first-ever interaction is almost
+    // always a tap on one of those buttons (there's no keyboard), which a canvas-scoped
+    // listener never sees. `document` catches the bubbled event regardless of which
+    // element was actually tapped (the button handlers call preventDefault(), not
+    // stopPropagation(), so the event still bubbles up; preventDefault also does not
+    // revoke the browser's real user-gesture/activation state, which is what the
+    // fullscreen request and audio unlock below both also depend on).
+    onFirstRealGesture(startLevelClock);
     this.input.keyboard.once('keydown', startLevelClock);
+    onFirstRealGesture(requestFullscreenOnce);
+    this.input.keyboard.once('keydown', requestFullscreenOnce);
 
     this.level1Complete = false;
     this.movementLocked = false;
@@ -275,9 +316,24 @@ class LevelScene extends Phaser.Scene {
     const slider = document.getElementById('music-volume');
     const initialVolume = slider ? parseFloat(slider.value) : 0.5;
     this.music = this.sound.add('theme', { loop: false, volume: initialVolume });
-    const startMusic = () => { if (!this.music.isPlaying) this.music.play(); };
-    this.input.once('pointerdown', startMusic);
-    this.input.keyboard.once('keydown', startMusic);
+    // Guard against level1Complete too: without it, a stray keydown after
+    // onLevel1Complete() has paused the music (Codex review caught this -- the keyboard
+    // listener below is a SEPARATE `once` from the pointer one, so if the player only
+    // ever used touch/mouse, that keyboard listener is still armed and can fire after
+    // completion, silently resuming the paused track).
+    const startMusic = () => { if (!this.level1Complete && !this.music.isPlaying) this.music.play(); };
+    if (this.levelClockStart !== null) {
+      // The player's first real gesture already happened before this (async) audio
+      // load finished -- start immediately rather than waiting for a SECOND gesture
+      // that may never come (e.g. a held movement button doesn't re-fire pointerdown/
+      // pointerup/keydown). Also caught by the Codex review.
+      startMusic();
+    } else {
+      // document, not this.input -- same canvas-vs-DOM-button gap as startLevelClock
+      // above, and same pointerdown/pointerup pointer-type split.
+      onFirstRealGesture(startMusic);
+      this.input.keyboard.once('keydown', startMusic);
+    }
   }
 
   // Single sampled source of truth for "how far into Level 1 are we", read once per

@@ -4,6 +4,17 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>Manos — Level 1</title>
+<!-- iOS has no in-tab Fullscreen API (verified current, Sept 2026 -- WebKit still doesn't
+     implement requestFullscreen outside <video>) -- "Add to Home Screen" is the only real
+     way to get a chrome-free iPhone experience, and these are the tags that actually make
+     that launch fullscreen instead of as another Safari tab. Android Chrome gets the real
+     Fullscreen API call instead (see the first-gesture handler in src/game.js). -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="apple-touch-icon" href="assets/icons/icon-180.png" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="assets/icons/icon-512.png" />
 <style>
   @font-face {
     font-family: 'ManosEnvironment';
@@ -98,6 +109,14 @@
     text-shadow: 0 1px 3px rgba(0,0,0,0.8);
     touch-action: none;
     -webkit-tap-highlight-color: transparent;
+    /* A held long-press on a button was popping iOS Safari's native text-selection
+       callout ("Copy"/"Look Up") -- that menu is gated by -webkit-touch-callout
+       specifically, not by user-select (which only stops text selection itself, a
+       related but separate mechanism). Both set explicitly at the button level rather
+       than relying on inheritance from #touch-controls. */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
   .touch-btn:active { background: rgba(181,71,63,0.55); }
   .touch-btn-gesture { font-size: 22px; }
@@ -182,16 +201,31 @@
     const bubble = document.getElementById('lyric-bubble');
     if (!canvas || !bubble) return;
     const rect = canvas.getBoundingClientRect();
-    bubble.style.bottom = (window.innerHeight - rect.bottom + 16) + 'px';
+    // document.documentElement.clientHeight, not window.innerHeight or
+    // visualViewport.height: `position:fixed` elements (this bubble included) are
+    // positioned against the LAYOUT viewport, and clientHeight of the root element IS
+    // that layout-viewport height by definition -- the correct coordinate space to
+    // subtract `rect.bottom` (also a layout-viewport-relative value, from
+    // getBoundingClientRect) against. A Codex review pass caught that an earlier version
+    // of this fix used `visualViewport.height` instead, which measures a DIFFERENT box
+    // (the visual viewport) that only coincides with the layout viewport absent
+    // pinch-zoom/on-screen-keyboard offsets -- mixing the two coordinate spaces could
+    // push the bubble the wrong distance, potentially off-screen, exactly the class of
+    // bug already hit once here (see the -54.75px incident in the build log).
+    const viewportHeight = document.documentElement.clientHeight;
+    bubble.style.bottom = (viewportHeight - rect.bottom + 16) + 'px';
   }
   window.addEventListener('resize', positionLyricBubble);
-  // The canvas doesn't exist until Phaser's Game boots -- poll briefly rather than
-  // assuming a fixed ready time. Directly observed staleness bug, not theoretical: the
-  // viewport's effective height can shift shortly after load (browser chrome/toolbar
-  // settling) without firing a `resize` event synced to that layout change, leaving a
-  // one-time-computed position stale (measured -54.75px off-screen in testing). A
-  // cheap periodic re-check is more robust than trying to catch every possible cause --
-  // mobile Safari's dynamic address-bar show/hide has the same class of risk.
+  // visualViewport's own events are used only as a WHEN-to-recheck trigger here (it
+  // fires more promptly than window's resize for some mobile toolbar-driven viewport
+  // changes) -- the actual measurement inside positionLyricBubble() is clientHeight,
+  // not visualViewport.height, for the coordinate-space reason explained above.
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', positionLyricBubble);
+    window.visualViewport.addEventListener('scroll', positionLyricBubble);
+  }
+  // Cheap fallback net: the canvas doesn't exist until Phaser's Game boots, and this
+  // also catches the rare case of no visualViewport support at all.
   setInterval(() => { if (window.game && window.game.canvas) positionLyricBubble(); }, 500);
 </script>
 </body>
