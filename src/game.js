@@ -5,7 +5,7 @@ const SPEED = 260;
 const JUMP_VELOCITY = -750;
 const GRAVITY_Y = 1800;
 const PROJECTILE_SPEED = 700;
-const PROJECTILE_Y_OFFSET = 120;
+const PROJECTILE_DESCENT_SPEED = 140;
 // The design canvas both fixed-screen levels are composed against (matches the
 // Phaser.Game width/height at the bottom of this file). Neither level scrolls, so this
 // doubles as the world bounds, the camera bounds and the background's display size.
@@ -41,6 +41,13 @@ const BAND_PERFORMANCE_ANIM_GROUP = {
     musician_accordion_playing: 'musicianAccordionPlayingAnim',
     tabla_player_playing: 'tablaPlayerPlayingAnim',
   },
+};
+// Manos's level-agnostic performance loop. Kept in the same grouped loader/animation
+// path as the cast performance sheets so it is loaded and registered once for every level.
+const PLAYER_PERFORMANCE_ANIM_GROUP = {
+  frameRate: 8,
+  repeat: -1,
+  sheets: { manos_stage_singing: 'manosStageSingingAnim' },
 };
 // The keyboardist's cue-specific walk and ecstatic standing-rock loops. They are kept in
 // the same grouped loader/animation path as the ordinary instrument-playing sheets, but
@@ -169,10 +176,11 @@ const LEVEL0_INTRO_SECONDS = 15;
 // phone exit follows at 0:53. The solo overlaps the call instead of delaying it.
 const KEYBOARD_SOLO_SECONDS = 50;
 const LEVEL1_PHONE_SECONDS = 53;
-const THEATRE_KEYBOARD_SOLO_SECONDS = 105;
+const LEVEL1_WALK_OFF_SECONDS = 62;
+const THEATRE_KEYBOARD_SOLO_SECONDS = 120;
 const THEATRE_PHONE_SECONDS = 113;
+const THEATRE_EXIT_CLEARANCE_PX = 1;
 const KEYBOARD_SOLO_WALK_SPEED = 260;
-const KEYBOARD_SOLO_STANDING_MS = 4000;
 // Used only when the non-blocking audio path never starts playback, so the silent
 // fallback timeline can still reach the GAME_PLAN's song-end credits beat.
 const SILENT_TRACK_SECONDS = 183.92816326530613;
@@ -184,11 +192,11 @@ const CREDITS_SCROLL_DURATION_MS = 16000;
 // walkMinX/walkMaxX the stage's own width, so he can't wander in front of the side walls
 // where the art's perspective would make him read as a giant.
 //
-// Why the player shares the sopranos' height band at all: thrown hearts/flowers fly
-// HORIZONTALLY (see updateProjectiles()), so a player standing back in the auditorium
-// aisle -- the "correct" place for an audience member -- could never land a hit on anyone
-// on stage. Standing him at the apron, a couple of feet below the lip, is the only
-// placement where the existing projectile system reaches the cast.
+// Why the player shares the sopranos' height band at all: thrown hearts/flowers descend
+// at a shallow fixed slope (see updateProjectiles()), so a player standing back in the
+// auditorium aisle -- the "correct" place for an audience member -- could never land a
+// hit on anyone on stage. Standing him at the apron, a couple of feet below the lip, is
+// the only placement where the projectile system reaches the cast.
 const THEATRE = {
   stageFootY: 498,
   // Recalibrated via the Stage Blocking Board tool (Hazem, 2026-09-09): was 520.
@@ -197,6 +205,7 @@ const THEATRE = {
   // stage's full width, so he can't end up drawn over the gold arch or the curtain legs.
   walkMinX: 480,
   walkMaxX: 930,
+  playerScale: 0.7254,
   // Recalibrated via the Stage Blocking Board tool (Hazem, 2026-09-09): was 500.
   playerSpawnX: 507,
   // Was 170. Matched to PARTY.castContentHeight (140) so a soprano is the same size in
@@ -247,11 +256,14 @@ const MIC_ANCHOR = { anchorFrameX: 258, anchorFrameY: 541, refContentHeight: 441
 const THEATRE_DEPTH = { background: -10, soprano: -5, audience: -3 };
 
 // Ground-truth singing windows for Theatre sopranos:
-// Phase 1: 79-88s, Phase 2: 96s through Theatre's exit (132s).
+// Phase 1: 71-88s, Phase 2: 113.98s through Theatre's exit (132s).
 // Outside these windows, joined sopranos rest at their mic positions.
-const THEATRE_SINGING_PHASE1_START = 79;
+const THEATRE_SINGING_PHASE1_START = 71;
 const THEATRE_SINGING_PHASE1_END = 88;
-const THEATRE_SINGING_PHASE2_START = 96;
+// PROVISIONAL: derived from assets/lyrics.json's song structure (the 113.98-134.38s
+// held climax note), not a directly annotated backing-vocal cue like Phase 1. Needs
+// Hazem's live confirmation and may need a follow-up one-line correction.
+const THEATRE_SINGING_PHASE2_START = 113.98;
 
 function isTheatreSingingWindow(elapsed) {
   return (elapsed >= THEATRE_SINGING_PHASE1_START && elapsed < THEATRE_SINGING_PHASE1_END)
@@ -423,6 +435,7 @@ const ALL_ANIM_GROUPS = [
   ...Object.values(LEVEL3_ANIM_GROUPS),
   // Once, not per level -- see the comment on the table itself.
   BAND_PERFORMANCE_ANIM_GROUP,
+  PLAYER_PERFORMANCE_ANIM_GROUP,
   ...Object.values(KEYBOARD_SOLO_ANIM_GROUPS),
 ];
 
@@ -498,6 +511,7 @@ class LevelScene extends Phaser.Scene {
     this.load.spritesheet('gesture_flowers', s.gesture_flowers.file, { frameWidth: s.gesture_flowers.frameWidth, frameHeight: s.gesture_flowers.frameHeight });
     this.load.spritesheet('phone_pull', s.phone_pull.file, { frameWidth: s.phone_pull.frameWidth, frameHeight: s.phone_pull.frameHeight });
     this.load.spritesheet('phone_read', s.phone_read.file, { frameWidth: s.phone_read.frameWidth, frameHeight: s.phone_read.frameHeight });
+    this.load.spritesheet('phone_check_idle', s.phone_check_idle.file, { frameWidth: s.phone_check_idle.frameWidth, frameHeight: s.phone_check_idle.frameHeight });
     // NOTE: kiosk_vendor_idle/kiosk_vendor_love (his STANDING + dizzy sheets) are
     // deliberately no longer loaded. GAME_PLAN section 0 retires the vendor as an
     // interactive character everywhere; he is passive-only now, and both levels use their
@@ -557,8 +571,8 @@ class LevelScene extends Phaser.Scene {
   buildLevel() {
     const cfg = this.cfg;
     // playerScale is the ONE value still read out of cfg.level1: it is a real, tuned
-    // number (0.62, the on-screen size Manos was authored at) and nothing else in this
-    // file recomputes it. Every other key that block still carries -- panelsRightToLeft,
+    // number (0.806 as of RUN17's 1.3x bump -- was 0.62 originally) and nothing else in
+    // this file recomputes it. Every other key that block still carries -- panelsRightToLeft,
     // kiosk.*, groundY, panelW/panelH, spawnX -- described the deleted scrolling street
     // and is now dead data; assets.json is outside this ticket's write set, so it is left
     // in place unread rather than edited out.
@@ -616,6 +630,12 @@ class LevelScene extends Phaser.Scene {
       key: 'phoneReadAnim',
       frames: this.anims.generateFrameNumbers('phone_read', { start: 0, end: cfg.sprites.phone_read.frames - 1 }),
       frameRate: 10,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'phoneCheckIdleAnim',
+      frames: this.anims.generateFrameNumbers('phone_check_idle', { start: 0, end: cfg.sprites.phone_check_idle.frames - 1 }),
+      frameRate: 8,   // standing idle loop, matches this file's 8fps idle-loop convention
       repeat: -1,
     });
     this.anims.create({
@@ -726,6 +746,7 @@ class LevelScene extends Phaser.Scene {
     this.keyF = this.input.keyboard.addKey('F');
     this.keyD = this.input.keyboard.addKey('D');
     this.keyM = this.input.keyboard.addKey('M');
+    this.mSequenceActive = false;
     this.debugRapidFireAccumMs = 0;
 
     this.gesture = null; // null | 'heart' | 'flowers' | 'dizzy'
@@ -821,6 +842,7 @@ class LevelScene extends Phaser.Scene {
     this.theatreKeyboardSoloRequested = false;
     this.theatrePhoneRequested = false;
     this.theatrePhoneStarted = false;
+    this.theatreWalkOffSeconds = null;
     this.theatreKeyboardSolo = null;
     this.theatreSoloAudienceSprite = null;
     this.theatreSoloAudienceTween = null;
@@ -865,6 +887,8 @@ class LevelScene extends Phaser.Scene {
       this.destroyPartyMic();
       this.destroyBoss();
       this.destroyPassiveAudience();
+      this.mSequenceActive = false;
+      this.debugRapidFireAccumMs = 0;
       for (const el of [this.lyricEl, this.cinemaLyricEl]) {
         if (!el) continue;
         el.textContent = '';
@@ -1613,7 +1637,6 @@ class LevelScene extends Phaser.Scene {
         // dizzy timer nor a running fade may outlive the sprite or a level transition.
         dizzyTimer: null,
         performTween: null,
-        keyboardSoloTimer: null,
         keyboardSoloRestore: null,
       };
 
@@ -1998,7 +2021,7 @@ class LevelScene extends Phaser.Scene {
   }
 
   // Cancels everything this actor owns that could still fire at it later: the dizzy-cycle
-  // listener, bounded dizzy/solo timers and either half of the fade. Called before a
+  // listener, bounded dizzy timer and either half of the fade. Called before a
   // performance takeover and again from destroyInteractiveActors() before the sprite is
   // destroyed, so no queued callback can reach a dead sprite or resurrect state across a
   // Level 1 -> 2 -> 3 transition.
@@ -2014,10 +2037,6 @@ class LevelScene extends Phaser.Scene {
     if (actor.performTween) {
       actor.performTween.stop();
       actor.performTween = null;
-    }
-    if (actor.keyboardSoloTimer) {
-      actor.keyboardSoloTimer.remove(false);
-      actor.keyboardSoloTimer = null;
     }
   }
 
@@ -2175,6 +2194,7 @@ class LevelScene extends Phaser.Scene {
       // destroy(), so no queued callback can reach a handler closed over a dead sprite --
       // this runs at both level handovers as well as at scene shutdown.
       this.clearActorPerformanceTrigger(actor);
+      if (actor.keyboardSoloRestore) this.finishLevel1KeyboardSolo(actor);
       actor.sprite.destroy();
     }
     this.interactiveActors = [];
@@ -2299,10 +2319,6 @@ class LevelScene extends Phaser.Scene {
       actor.sprite.setFlipX(false);
       actor.state = 'keyboard_solo_standing';
       this.setActorVisual(actor, KEYBOARD_SOLO_VISUALS.standing);
-      actor.keyboardSoloTimer = this.time.delayedCall(KEYBOARD_SOLO_STANDING_MS, () => {
-        actor.keyboardSoloTimer = null;
-        this.finishLevel1KeyboardSolo(actor);
-      });
       return;
     }
     actor.sprite.setPosition(actor.sprite.x + Math.sign(dx) * step, FARA7.stageFootY);
@@ -2310,20 +2326,8 @@ class LevelScene extends Phaser.Scene {
 
   finishLevel1KeyboardSolo(actor) {
     if (!this.interactiveActors.includes(actor) || !actor.keyboardSoloRestore) return;
-    const restore = actor.keyboardSoloRestore;
     actor.keyboardSoloRestore = null;
-    actor.sprite.setPosition(actor.spec.targetX, actor.spec.footY);
-    actor.sprite.setFlipX(restore.flipX);
-    actor.sprite.setVisible(true);
-    actor.sprite.setAlpha(1);
-    if (restore.state === 'performing' && actor.spec.performance) {
-      actor.performRequested = true;
-      actor.state = 'performing';
-      this.setActorVisual(actor, actor.spec.performance);
-      return;
-    }
-    actor.state = 'engageable';
-    this.setActorVisual(actor, actor.spec.idle);
+    actor.keyboardSoloTargetX = null;
   }
 
   // Theatre's keyboardist is deliberately standalone, like the mic composite: it has the
@@ -2416,12 +2420,11 @@ class LevelScene extends Phaser.Scene {
     }
     this.updateTheatreKeyboardSolo(delta);
 
-    if (!this.theatrePhoneRequested && elapsed >= THEATRE_PHONE_SECONDS
-      && elapsed < LEVEL3_ENTRANCE_SECONDS) {
+    if (!this.theatrePhoneRequested && elapsed >= THEATRE_PHONE_SECONDS) {
       this.theatrePhoneRequested = true;
     }
     if (!this.theatrePhoneRequested || this.theatrePhoneStarted || this.cutsceneActive || this.phoneFadedOut
-      || this.level3Requested) return;
+      || this.level2Revealing || this.level3Requested) return;
 
     this.cancelGesture();
     if (!this.player.body.onFloor()) {
@@ -2436,37 +2439,14 @@ class LevelScene extends Phaser.Scene {
     this.exitSettling = false;
     this.exitPinX = null;
     this.theatrePhoneStarted = true;
+    const walk = this.cfg.sprites.walk;
+    const walkScale = THEATRE.playerScale * (this.cfg.sprites.idle.contentHeight / walk.contentHeight);
+    const walkHalfWidth = (walk.frameWidth * walkScale) / 2;
+    const travelSeconds = (this.player.x + walkHalfWidth + THEATRE_EXIT_CLEARANCE_PX) / SPEED;
+    this.theatreWalkOffSeconds = LEVEL3_ENTRANCE_SECONDS - travelSeconds;
     this.cutsceneActive = true;
     this.player.setCollideWorldBounds(false);
-    // Explicit callback keeps this call inside Theatre. Party remains owned solely by the
-    // existing absolute 132s transition.
-    this.startPhoneCutscene(() => this.resumeTheatreAfterPhoneCutscene(), 'theatre');
-    this.exitHoldOneTick = true;
-  }
-
-  resumeTheatreAfterPhoneCutscene() {
-    if (!this.level2Active || this.level3Active) return;
-    this.level2Revealing = true;
-    this.cutsceneActive = false;
-    this.holdPosition = false;
-    this.phoneOwner = null;
-    this.phoneDestination = null;
-    this.phoneFadedOut = false;
-    this.exitSettling = false;
-    this.exitPinX = null;
-    this.exitHoldOneTick = false;
-    this.player.body.allowGravity = true;
-    this.player.body.reset(THEATRE.playerSpawnX, THEATRE.apronFootY - 2);
-    this.player.setVelocity(0, 0);
-    this.player.setFlipX(false);
-    this.player.setCollideWorldBounds(true);
-    this.player.anims.play('idleAnim', true);
-    this.resizeBodyForTexture();
-    this.cameras.main.once('camerafadeincomplete', () => {
-      if (!this.level2Active || this.level3Active) return;
-      this.level2Revealing = false;
-    });
-    this.cameras.main.fadeIn(600, 10, 14, 26);
+    this.startPhoneCutscene(() => this.enterLevel3(), 'theatre');
   }
 
   // Level 1's ONE scripted beat, and the successor to the deleted street build's
@@ -2511,11 +2491,7 @@ class LevelScene extends Phaser.Scene {
     // in update() and Arcade's own world-bounds collision have to let go, or he would
     // stop dead at x=0 instead of clearing the frame.
     this.player.setCollideWorldBounds(false);
-    this.startPhoneCutscene();
-    // The cutsceneActive movement branch would otherwise shove him off the mark on this
-    // very tick, before phonePullAnim has shown a single frame. Exactly one tick -- that
-    // branch clears the flag the first time it reads it.
-    this.exitHoldOneTick = true;
+    this.startPhoneCutscene('level1');
   }
 
   // True once the player's own sprite bounds have fully cleared the canvas's left edge --
@@ -2525,11 +2501,10 @@ class LevelScene extends Phaser.Scene {
     return this.player.getBounds().right < 0;
   }
 
-  // Cutscene stage 1: the call comes in while the player keeps walking (see the
-  // cutsceneActive movement branch in update()). One-shot phonePullAnim (character
-  // notices the call, reaches for phone, pulls it out) plays first; on its completion,
-  // the looping phoneReadAnim (phone held at ear) takes over and the DOM phone-panel
-  // overlay slides in.
+  // Cutscene stage 1: one-shot phonePullAnim (character notices the call, reaches for
+  // phone, pulls it out) plays first. On completion, the looping phoneReadAnim and DOM
+  // phone panel take over. Level 1 holds that loop in place until its absolute 62s walk
+  // cue; Theatre now derives its own hold-then-walk cue from the handoff position.
   startPhoneCutscene(destOrOpts, maybeOwner) {
     let destination = null;
     let owner = null;
@@ -2548,16 +2523,23 @@ class LevelScene extends Phaser.Scene {
     this.phoneFadedOut = false;
     this.phonePresentationDone = false;
 
-    // The cutscene's auto-walk must take over THIS tick, no matter what gesture (if any)
-    // was mid-playback when the handoff hit -- "he never stops moving" is the whole point
-    // of the phone-pull/phone-read sheets. Force any in-progress gesture to end right now
-    // so the very next update() tick takes the cutsceneActive branch, not the gesture one.
+    // The cutscene's movement ownership must take over THIS tick, no matter what gesture
+    // (if any) was mid-playback when the handoff hit. Force any in-progress gesture to end
+    // right now so the next update() tick takes the cutsceneActive branch, not the gesture one.
     this.cancelGesture();
     this.player.anims.play('phonePullAnim', true);
     this.phonePullCompleteHandler = () => {
       this.phonePullCompleteHandler = null;
       if (!this.isPhonePresentationCurrent()) return;
-      this.player.anims.play('phoneReadAnim', true);
+      // Level 1 holds still checking his phone (real art, RUN18 Ticket G) while the
+      // movement branch keeps him on his mark. Theatre uses the same standing loop until
+      // its dynamically computed walk cue, then returns to its read-while-walking stride.
+      if (this.phoneOwner === 'theatre' && this.theatreWalkOffSeconds !== null
+        && this.getLevelElapsed() < this.theatreWalkOffSeconds) {
+        this.player.anims.play('phoneCheckIdleAnim', true);
+      } else {
+        this.player.anims.play(this.phoneOwner === 'level1' ? 'phoneCheckIdleAnim' : 'phoneReadAnim', true);
+      }
       this.showPhonePanel();
     };
     this.player.once('animationcomplete-phonePullAnim', this.phonePullCompleteHandler);
@@ -2642,7 +2624,15 @@ class LevelScene extends Phaser.Scene {
         this.phoneImageLoadHandler = null;
       }
       msg.hidden = true;
-      this.player.anims.play('walkAnim', true);
+      // Level 1 has already started walking at its absolute 62s cue; this swaps out the
+      // temporary phone-check loop only after the panel completes. Theatre may still be
+      // holding here, so its movement branch owns the later transition to walking.
+      if (this.phoneOwner === 'theatre' && this.theatreWalkOffSeconds !== null
+        && this.getLevelElapsed() < this.theatreWalkOffSeconds) {
+        this.player.anims.play('phoneCheckIdleAnim', true);
+      } else {
+        this.player.anims.play('walkAnim', true);
+      }
       // The message has been shown for its full staged duration and the panel has slid
       // back out. This is half of the fade condition in update(); the other half is him
       // actually clearing the frame. Whichever finishes second is what starts the fade,
@@ -2658,6 +2648,8 @@ class LevelScene extends Phaser.Scene {
   onFadeOut() {
     if (this.phoneOwner === 'theatre') {
       if (this.phoneFadedOut) return;
+      this.level3Requested = true;
+      this.level3Revealing = true;
     } else {
       if (this.fadedOut || this.phoneFadedOut) return;
       this.fadedOut = true;
@@ -2711,6 +2703,8 @@ class LevelScene extends Phaser.Scene {
     this.ground.setPosition(STAGE_VIEW.width / 2, interiorGroundY + 20);
     this.ground.setSize(STAGE_VIEW.width, 40);
     this.ground.body.updateFromGameObject();
+    this.baseScale = THEATRE.playerScale;
+    this.sizedForTexture = null;
     this.player.anims.play('idleAnim', true);
     this.resizeBodyForTexture();
     this.player.body.allowGravity = true;
@@ -2733,7 +2727,10 @@ class LevelScene extends Phaser.Scene {
     this.exitSettling = false;
     this.exitPinX = null;
     this.exitHoldOneTick = false;
+    this.theatreWalkOffSeconds = null;
     this.theatreSingingActive = false;
+    this.mSequenceActive = false;
+    this.debugRapidFireAccumMs = 0;
 
     const touch = document.getElementById('touch-controls');
     if (touch) touch.style.removeProperty('display');
@@ -2746,25 +2743,6 @@ class LevelScene extends Phaser.Scene {
       if (window.positionCinemaLyrics) window.positionCinemaLyrics();
     });
     this.cameras.main.fadeIn(600, 10, 14, 26);
-  }
-
-  // Level 2 -> Level 3, gated on the absolute song clock at 2:12. Same one-shot-latch shape
-  // as updateStageExit(), and deliberately MUCH simpler than it: GAME_PLAN calls for no
-  // phone cutscene at this seam (the Theatre-owned 1:53 call has already returned him to
-  // the room), so there is no scripted walk-off or DOM panel here -- just the same 600ms
-  // fade-to-#0a0e1a that onFadeOut() already uses, then enterLevel3() on the far side.
-  //
-  // level3Revealing (not a separate fade flag) covers the whole handover, fade-out through
-  // fade-in, so he is frozen for all of it rather than able to walk during the fade.
-  updateLevel3Entrance(elapsed) {
-    if (!this.level2Active || this.level3Requested) return;
-    if (elapsed < LEVEL3_ENTRANCE_SECONDS) return;
-    this.level3Requested = true;
-    this.level3Revealing = true;
-    this.cancelGesture();
-    this.player.setVelocity(0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => this.enterLevel3());
-    this.cameras.main.fadeOut(600, 10, 14, 26);
   }
 
   // Install the Party stage while the camera is fully faded out -- same method shape,
@@ -2847,8 +2825,11 @@ class LevelScene extends Phaser.Scene {
     this.phoneDestination = null;
     this.phoneFadedOut = false;
     this.phonePresentationDone = false;
+    this.theatreWalkOffSeconds = null;
     this.heartMarqueeTriggered = false;
     this.partyBgLit = false;
+    this.mSequenceActive = false;
+    this.debugRapidFireAccumMs = 0;
 
     this.renderLyrics(this.getLevelElapsed());
     this.cameras.main.once('camerafadeincomplete', () => {
@@ -2897,19 +2878,36 @@ class LevelScene extends Phaser.Scene {
   spawnProjectileDirectional(type, flip) {
     const isHeart = type === 'heart';
     const texKey = isHeart ? 'heart_icon' : 'flowers_icon';
-    // Ratios are the held-object's approximate center within its gesture frame,
-    // measured from the same crop used to produce the icon assets (see ticket).
-    const ratioX = isHeart ? 0.877 : 0.861;
-    const ratioY = isHeart ? 0.197 : 0.167;
-    const rx = flip ? (1 - ratioX) : ratioX;
-    const spawnX = this.player.x - this.player.displayWidth / 2 + rx * this.player.displayWidth;
-    const spawnY = this.player.y - this.player.displayHeight + ratioY * this.player.displayHeight + PROJECTILE_Y_OFFSET;
+    const trajectoryMode = this.level3Active ? 'partyArc' : 'descending';
+    let spawnX;
+    let spawnY;
+    if (trajectoryMode === 'partyArc') {
+      // update() only calls resizeBodyForTexture() at its own end, so a shot spawned the
+      // same tick a texture just changed (e.g. the M-key's singing animation) would
+      // otherwise read the PREVIOUS texture's stale displayWidth/displayHeight here.
+      this.resizeBodyForTexture();
+      // Ratios are the held-object's approximate center within its gesture frame,
+      // measured from the same crop used to produce the icon assets (see ticket).
+      // No PROJECTILE_Y_OFFSET here (RUN19 Ticket C) -- that flat 120px shift was
+      // calibrated against Level 1's much larger on-screen scale and dragged Party's
+      // spawn point down near his feet; removing it restores the hand-relative position
+      // these ratios were originally measured against.
+      const ratioX = isHeart ? 0.877 : 0.861;
+      const ratioY = isHeart ? 0.197 : 0.167;
+      const rx = flip ? (1 - ratioX) : ratioX;
+      spawnX = this.player.x - this.player.displayWidth / 2 + rx * this.player.displayWidth;
+      spawnY = this.player.y - this.player.displayHeight + ratioY * this.player.displayHeight;
+    } else {
+      spawnX = this.player.body.center.x;
+      spawnY = this.player.body.center.y;
+    }
 
     const icon = this.add.sprite(spawnX, spawnY, texKey);
     icon.setFlipX(flip);
     this.projectiles.push({
       sprite: icon,
       vx: flip ? -PROJECTILE_SPEED : PROJECTILE_SPEED,
+      trajectoryMode,
       ageMs: 0,
       spawnX,
       spawnY,
@@ -2928,7 +2926,9 @@ class LevelScene extends Phaser.Scene {
       proj.ageMs += delta;
       const ageSeconds = proj.ageMs / 1000;
       proj.sprite.x = proj.spawnX + proj.vx * ageSeconds;
-      proj.sprite.y = proj.spawnY - 16 * Math.sin(Math.PI * ageSeconds);
+      proj.sprite.y = proj.trajectoryMode === 'descending'
+        ? proj.spawnY + PROJECTILE_DESCENT_SPEED * ageSeconds
+        : proj.spawnY - 16 * Math.sin(Math.PI * ageSeconds);
 
       // One projectile is spent by one ACCEPTED hit -- including a below-threshold one
       // that leaves the actor standing, which is what makes three hits cost three throws.
@@ -2961,24 +2961,26 @@ class LevelScene extends Phaser.Scene {
     // Single sampled value, reused below for both the lyric lookup and the cutscene
     // stage checks -- see the comment on getLevelElapsed().
     const elapsed = this.getLevelElapsed();
+    const mJustDown = Phaser.Input.Keyboard.JustDown(this.keyM);
+    const mSequenceEligibleAtInput = !this.introActive && !this.level2Revealing && !this.level3Revealing
+      && !this.exitSettling && !this.cutsceneActive && !this.gesture && !this.manosDefeated;
 
     this.updateIntro(elapsed);
     // Level 1: real keyboard solo at 0:50, with the existing phone exit still fixed at
     // 0:53. Theatre owns its separate 1:45 solo and 1:53 phone presentation.
     this.updateStageExit(elapsed, delta);
     this.updateTheatreKeyboardBeat(elapsed, delta);
-    // Level 2's own scripted beats, both on the absolute song clock: the 2:12 handover to
-    // the Party, then the 2:40 boss entrance once the Party is up. Each is its own one-shot
-    // latch; neither depends on how many cast hits have actually landed.
-    this.updateLevel3Entrance(elapsed);
+    // Party's own scripted beats remain fixed to the absolute song clock once it is up.
     this.updateHeartMarquee(elapsed);
     this.updateBossEntrance(elapsed);
     this.updateTheatreSopranosSingingGate(elapsed);
 
     // The fade waits on BOTH halves: he has fully cleared the frame AND the phone panel
-    // has finished its own staged sequence. Generalized for both Level 1 and Theatre.
+    // has finished its own staged sequence. Theatre additionally waits for the absolute
+    // 2:12 handoff floor; Level 1 retains its independent eligibility rules.
     const phoneCanFade = this.phoneOwner === 'theatre'
-      ? (this.cutsceneActive && !this.phoneFadedOut && this.level2Active && !this.level3Active)
+      ? (this.cutsceneActive && !this.phoneFadedOut && this.level2Active && !this.level3Active
+        && elapsed >= LEVEL3_ENTRANCE_SECONDS)
       : (this.cutsceneActive && !this.fadedOut && !this.level2Active);
 
     if (phoneCanFade && this.phonePresentationDone && this.isPlayerOffscreen()) {
@@ -3005,6 +3007,14 @@ class LevelScene extends Phaser.Scene {
     this.touchState.flowers = false;
     this.touchState.dizzy = false;
 
+    const mSequenceEligible = mSequenceEligibleAtInput && !this.introActive && !this.level2Revealing
+      && !this.level3Revealing && !this.exitSettling && !this.cutsceneActive && !this.gesture
+      && !this.manosDefeated;
+    if (mSequenceEligible && mJustDown) {
+      this.mSequenceActive = !this.mSequenceActive;
+      if (this.mSequenceActive) this.debugRapidFireAccumMs = 0;
+    }
+
     if (this.introActive) {
       this.player.setVelocity(0, 0);
     } else if (this.manosDefeated) {
@@ -3024,16 +3034,30 @@ class LevelScene extends Phaser.Scene {
       this.player.setVelocityX(0);
       this.player.anims.play('jumpAnim', true);
     } else if (this.cutsceneActive) {
-      // Auto-drive the player off the stage for the whole phone-call sequence -- "keeps
-      // walking the entire time" is literal, not a side effect of a frozen/idle
-      // animation. He exits stage LEFT (negative X / setFlipX(true)), which is also the
-      // direction the phone-pull/phone-read sheets are drawn facing. Deliberately NO
-      // anims.play() call in this branch -- texture swaps for this stage are driven
-      // exclusively by startPhoneCutscene()'s own anims.play()/delayedCall chain. Letting
-      // this branch also call anims.play() every tick would silently overwrite the
-      // one-shot phonePullAnim the very next frame (the exact bug a prior review caught
-      // before this branch existed).
-      if (this.exitHoldOneTick) {
+      // Level 1 holds at the phone mark through the absolute 62s walk cue. Theatre holds
+      // through its position-derived cue, then explicitly selects its walking animation
+      // without ever replacing an unfinished phonePullAnim. Both exit stage LEFT.
+      if (this.phoneOwner === 'level1' && elapsed < LEVEL1_WALK_OFF_SECONDS) {
+        this.exitHoldOneTick = false;
+        this.player.setVelocity(0, 0);
+        this.player.setFlipX(true);
+      } else if (this.phoneOwner === 'theatre') {
+        this.exitHoldOneTick = false;
+        if (this.theatreWalkOffSeconds !== null && elapsed < this.theatreWalkOffSeconds) {
+          this.player.setVelocity(0, 0);
+          this.player.setFlipX(true);
+        } else if (this.isPlayerOffscreen()) {
+          this.player.setVelocity(0, 0);
+        } else {
+          this.player.setVelocityX(-SPEED);
+          this.player.setFlipX(true);
+          const phonePullPlaying = this.player.anims.isPlaying && this.player.anims.currentAnim
+            && this.player.anims.currentAnim.key === 'phonePullAnim';
+          if (!phonePullPlaying) {
+            this.player.anims.play(this.phonePresentationDone ? 'walkAnim' : 'phoneReadAnim', true);
+          }
+        }
+      } else if (this.exitHoldOneTick) {
         // Exactly one tick of stillness on his mark -- see updateStageExit().
         this.exitHoldOneTick = false;
         this.player.setVelocity(0, 0);
@@ -3065,7 +3089,9 @@ class LevelScene extends Phaser.Scene {
         this.player.setVelocityY(JUMP_VELOCITY);
       }
 
-      if (!onFloor) {
+      if (this.mSequenceActive) {
+        this.player.anims.play('manosStageSingingAnim', true);
+      } else if (!onFloor) {
         this.player.anims.play('jumpAnim', true);
       } else if (left || right) {
         this.player.anims.play('walkAnim', true);
@@ -3074,14 +3100,24 @@ class LevelScene extends Phaser.Scene {
       }
     }
 
-    if (this.keyM.isDown && !this.cutsceneActive && !this.gesture) {
-      this.player.anims.play('giveHeartAnim', true);
-      this.debugRapidFireAccumMs += delta;
-      if (this.debugRapidFireAccumMs >= 80) {
-        this.debugRapidFireAccumMs %= 80;
-        this.spawnProjectileDirectional('heart', true);
-        this.spawnProjectileDirectional('heart', false);
+    if (this.mSequenceActive && mSequenceEligible) {
+      const allActorsDone = this.interactiveActors.every((actor) => (
+        actor.hitsReceived >= actor.spec.hitsRequired
+        || actor.state === 'keyboard_solo_walking'
+        || actor.state === 'keyboard_solo_standing'
+      ));
+      if (allActorsDone) {
+        this.debugRapidFireAccumMs = 0;
+      } else {
+        this.debugRapidFireAccumMs += delta;
+        if (this.debugRapidFireAccumMs >= 80) {
+          this.debugRapidFireAccumMs %= 80;
+          this.spawnProjectileDirectional('heart', true);
+          this.spawnProjectileDirectional('heart', false);
+        }
       }
+    } else {
+      this.debugRapidFireAccumMs = 0;
     }
 
     // Entrances/walk-ins, for whichever cast this.interactiveActors currently holds --
