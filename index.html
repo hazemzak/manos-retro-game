@@ -233,7 +233,12 @@
     padding: 0;
     border: 0;
     background: transparent;
-    color: #2b241b;
+    /* Was #2b241b (dark brown), calibrated for the retired light cinema-hall screen.
+       The Level 2 Theatre background this now overlays is dark throughout (measured
+       mean luminance 78-106 across every candidate placement) -- a dark-brown fill has
+       no usable contrast anywhere on it. Light cream reads clearly against the dark
+       stage/curtain art instead. */
+    color: #f5e6c8;
     font-family: 'ManosLyrics', sans-serif;
     font-size: var(--cinema-lyric-size, 24px);
     line-height: 1.25;
@@ -248,6 +253,30 @@
     text-shadow: none;
   }
   #cinema-screen-lyrics[hidden] { display: none; }
+
+  /* Inert credits-scroll overlay -- hidden by default, positioned via JS to cover the
+     rendered canvas area under Scale.FIT letterboxing. Styled as a fixed overlay matching
+     the existing convention for #lyric-bubble and #cinema-screen-lyrics. Reveal and scroll
+     logic is handled by src/game.js (not this markup file). */
+  #credits-overlay {
+    position: fixed;
+    z-index: 12; /* above #phone-panel (11) and touch-controls/lyric-bubble (10) */
+    box-sizing: border-box;
+    margin: 0;
+    padding: 20px;
+    background: #0a0e1a;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+  }
+  #credits-overlay[hidden] { display: none; }
+  #credits-content {
+    color: #f4e9d8;
+    font-family: 'ManosLyrics', sans-serif;
+    font-size: 18px;
+    text-align: center;
+    line-height: 1.4;
+  }
 </style>
 </head>
 <body>
@@ -274,8 +303,11 @@
   <img id="phone-screen-img" src="" alt="" />
   <div id="phone-message-text" lang="ar" dir="rtl" hidden>
     <div class="phone-sender">♥ من مانوس</div>
-    <div class="phone-body"><span class="ltr-iso">&lt;3</span> : يلا سيما</div>
+    <div class="phone-body"><span class="ltr-iso">&lt;3</span> : يلا عالمسرح</div>
   </div>
+</div>
+<div id="credits-overlay" hidden>
+  <div id="credits-content">[CREDITS PLACEHOLDER -- Hazem to provide]</div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 <script src="src/game.js"></script>
@@ -336,7 +368,11 @@
   // In-world cinema-screen lyric overlay -- shown for real song lyrics once Level 2's
   // interior is revealed (src/game.js owns visibility/text via renderLyrics()). Rect is
   // the measured illuminated-screen inset in the 1376x768 design canvas.
-  const CINEMA_LYRIC_RECT = { x: 514, y: 296, width: 348, height: 64 };
+  // Recalibrated for the Level 2 theatre art (the old numbers were measured against the
+  // retired blank cinema-hall image). This is the stage backdrop between the curtain legs,
+  // above the sopranos' heads (their content tops sit at y=328) and below the valance's
+  // lowest dip (~y=248) -- the only clear, unoccupied space on the new background.
+  const CINEMA_LYRIC_RECT = { x: 520, y: 252, width: 340, height: 58 };
   function positionCinemaLyrics() {
     const canvas = window.game && window.game.canvas;
     const el = document.getElementById('cinema-screen-lyrics');
@@ -372,10 +408,28 @@
   // of waiting up to 500ms for the periodic fallback below.
   window.positionCinemaLyrics = positionCinemaLyrics;
 
+  // Credits overlay positioning hook -- keeps the overlay aligned to the rendered canvas
+  // area under Scale.FIT letterboxing, following the same pattern as the existing overlays.
+  // Covers the entire canvas rect so that later reveal/scroll logic (in src/game.js) can
+  // scroll content within it.
+  function positionCreditsOverlay() {
+    const canvas = window.game && window.game.canvas;
+    const overlay = document.getElementById('credits-overlay');
+    if (!canvas || !overlay) return;
+    const rect = canvas.getBoundingClientRect();
+    overlay.style.left = rect.left + 'px';
+    overlay.style.top = rect.top + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+  }
+  // Exposed so src/game.js can call this directly when needed.
+  window.positionCreditsOverlay = positionCreditsOverlay;
+
   function positionAllOverlays() {
     positionLyricBubble();
     positionPhoneOverlays();
     positionCinemaLyrics();
+    positionCreditsOverlay();
   }
 
   window.addEventListener('resize', positionAllOverlays);

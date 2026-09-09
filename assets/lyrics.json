@@ -5,6 +5,11 @@
     "text": "دنا مالي وماله"
   },
   {
+    "start": 17.28,
+    "end": 18.84,
+    "text": "دنا مالي وماله"
+  },
+  {
     "start": 19.0,
     "end": 21.46,
     "text": "قلت كده في البداية"
@@ -71,28 +76,33 @@
   },
   {
     "start": 64.04,
-    "end": 69.04,
-    "text": "جاي عليك ايام وليالي"
+    "end": 73.24,
+    "text": "جاي عليك ايام وليالي",
+    "notes": "tail (~71.04-73.24) has an overlapping female backing-vocal restatement of this same line"
   },
   {
     "start": 75.44,
     "end": 79.52,
-    "text": "هوا لوحده الي شاغل بالي"
+    "text": "هوا لوحده الي شاغل بالي",
+    "notes": "unconfirmed: a female backing vocal may lead into this line as early as ~68.44, overlapping the previous cue -- flagged for Hazem to confirm, not rendered as a separate cue"
   },
   {
     "start": 79.56,
     "end": 80.76,
-    "text": "دايب عليه"
+    "text": "دايب عليه",
+    "vocals": "female"
   },
   {
     "start": 81.08,
     "end": 83.02,
-    "text": "مشتاق لعينيه"
+    "text": "مشتاق لعينيه",
+    "vocals": "female"
   },
   {
     "start": 83.02,
     "end": 87.06,
-    "text": "دنا من يومها مش عارف اصلًا ايه الي جرالي"
+    "text": "دنا من يومها مش عارف اصلًا ايه الي جرالي",
+    "vocals": "female"
   },
   {
     "start": 87.26,
@@ -161,7 +171,7 @@
   },
   {
     "start": 113.98,
-    "end": 118.87,
+    "end": 134.38,
     "text": "صار نفسي ابقى معاه"
   },
   {
