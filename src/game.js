@@ -6,6 +6,12 @@ const JUMP_VELOCITY = -750;
 const GRAVITY_Y = 1800;
 const PROJECTILE_SPEED = 700;
 const PROJECTILE_DESCENT_SPEED = 140;
+// Real tempo of assets/audio/manos_theme.mp3, measured via beat-tracking (2 independent
+// methods agreed exactly: 123.05 BPM). ms-per-minute / BPM = ms per beat. Try once-per-beat
+// first; halve the BPM (123.05/2) instead for a once-per-2-beats feel if that reads better
+// in practice -- Hazem compares both by ear.
+const HEART_FIRE_INTERVAL_MS = 60000 / 123.05; // ~487.6067ms (once per beat)
+// const HEART_FIRE_INTERVAL_MS = 60000 / (123.05 / 2); // ~975.2133ms (half-tempo alternative)
 // The design canvas both fixed-screen levels are composed against (matches the
 // Phaser.Game width/height at the bottom of this file). Neither level scrolls, so this
 // doubles as the world bounds, the camera bounds and the background's display size.
@@ -108,8 +114,8 @@ const ACTOR_DISPLAY_CONTENT_HEIGHT = 214.52;
 // ONE floor Y, not Theatre's stage/apron pair: the Fara7 art is a shallow raised wedding
 // deck (carpet top surface runs y 585 at the back to y 628 at the front lip, then a dark
 // ~70px front face down to the pavement). There is no second standable tier -- the only
-// other plane is the pavement in front, where the foreground crowd sits, and nobody
-// performs there. So the whole cast shares the deck's front-lip line.
+// other plane is the pavement in front, where nobody performs. So the whole cast shares
+// the deck's front-lip line.
 const FARA7 = {
   // The carpet's front lip. Deck spans roughly x 185..1175 at this line.
   stageFootY: 628,
@@ -132,9 +138,12 @@ const FARA7 = {
   leftWingX: 30,
   entranceSpeedPxPerSecond: 220,
 };
-// Background furthest back; the band on the deck sits behind the hero; the wedding party
-// is dressing on the same deck; the crowd is nearer the camera than any of it.
-const FARA7_DEPTH = { background: -10, band: -5, dressing: -4, audienceBack: 1, audienceFront: 2 };
+// Background furthest back; the band and wedding-party dressing sit behind the hero.
+// crowd sits in FRONT of the band/dressing/hero (RUN 21's foreground crowd, per
+// the reference photo's own composition) -- see the Fara7-only projectile
+// depth override in spawnProjectileDirectional() for why thrown projectiles
+// need their own depth above this, or a low throw would render behind it.
+const FARA7_DEPTH = { background: -10, band: -5, dressing: -4, crowd: 1 };
 
 // Level 1's own sheets, same grouped shape (and same three consumers) as
 // LEVEL2_ANIM_GROUPS below. The band's idle/love loops are NOT here -- they predate this
@@ -148,17 +157,6 @@ const LEVEL1_ANIM_GROUPS = {
       tabla_player_dizzy_love: 'tablaPlayerLoveAnim',
       husband_groom_seated_idle: 'groomSeatedAnim',
       wife_bride_seated_idle: 'brideSeatedAnim',
-      kiosk_vendor_fara7_seated_idle: 'fara7VendorAnim',
-      audience_galabeya1_fara7_seated_idle: 'fara7Galabeya1Anim',
-      audience_galabeya2_fara7_seated_idle: 'fara7Galabeya2Anim',
-      audience_suit_fara7_seated_idle: 'fara7SuitAnim',
-      audience_teal_man_fara7_seated_idle: 'fara7TealManAnim',
-      audience_cream_man_fara7_seated_idle: 'fara7CreamManAnim',
-      audience_taqiyah_man_fara7_seated_idle: 'fara7TaqiyahManAnim',
-      audience_yellow_woman_fara7_seated_idle: 'fara7YellowWomanAnim',
-      audience_pink_woman_fara7_seated_idle: 'fara7PinkWomanAnim',
-      audience_maroon_woman_fara7_seated_idle: 'fara7MaroonWomanAnim',
-      audience_teal_woman_fara7_seated_idle: 'fara7TealWomanAnim',
     },
   },
   // The GIF this sheet was converted from ran at 120ms per frame; frameRate is fps.
@@ -166,6 +164,29 @@ const LEVEL1_ANIM_GROUPS = {
     frameRate: 1000 / 120,
     repeat: -1,
     sheets: { level1_fara7_bg: 'fara7BgAnim' },
+  },
+  // RUN 21: the 4 new foreground crowd groups (3 men each), deliberately its own
+  // slow loop -- a much lower frame rate than every other cast loop here, since
+  // this is meant to read as secondary/background motion (a restrained clap or
+  // a small sway), not full character-animation fidelity.
+  crowd: {
+    frameRate: 4,
+    repeat: -1,
+    sheets: {
+      fara7_crowd_group_a: 'fara7CrowdGroupAAnim',
+      fara7_crowd_group_b: 'fara7CrowdGroupBAnim',
+      fara7_crowd_group_c: 'fara7CrowdGroupCAnim',
+      fara7_crowd_group_d: 'fara7CrowdGroupDAnim',
+    },
+  },
+  // RUN 22: the combined bride/groom heart-chair sprite. Same slow secondary-motion rate
+  // as crowd -- this is a subtle idle blink loop, not full character animation.
+  dressing: {
+    frameRate: 4,
+    repeat: -1,
+    sheets: {
+      fara7_couple_heart_chair_idle: 'fara7CoupleHeartChairIdleAnim',
+    },
   },
 };
 
@@ -205,7 +226,9 @@ const THEATRE = {
   // stage's full width, so he can't end up drawn over the gold arch or the curtain legs.
   walkMinX: 480,
   walkMaxX: 930,
-  playerScale: 0.7254,
+  // RUN 22 (2026-09-10): another -10% off the current value per Hazem, not off the
+  // original 0.806 baseline. 0.7254 * 0.9 = 0.65286 (19% below the original baseline).
+  playerScale: 0.65286,
   // Recalibrated via the Stage Blocking Board tool (Hazem, 2026-09-09): was 500.
   playerSpawnX: 507,
   // Was 170. Matched to PARTY.castContentHeight (140) so a soprano is the same size in
@@ -251,9 +274,8 @@ const MIC_VISUALS = [
 //    level. The Party deliberately reuses this exact measured frame anchor and reference
 //    height; only its world placement is provisional.
 const MIC_ANCHOR = { anchorFrameX: 258, anchorFrameY: 541, refContentHeight: 441 };
-// All below the player's default depth 0 -- the hero is never occluded. The audience sits
-// nearer the camera than the stage does, hence in front of the sopranos.
-const THEATRE_DEPTH = { background: -10, soprano: -5, audience: -3 };
+// Both below the player's default depth 0, so the hero is never occluded.
+const THEATRE_DEPTH = { background: -10, soprano: -5 };
 
 // Ground-truth singing windows for Theatre sopranos:
 // Phase 1: 71-88s, Phase 2: 113.98s through Theatre's exit (132s).
@@ -293,17 +315,6 @@ const LEVEL2_ANIM_GROUPS = {
       soprano_green_dizzy: 'sopranoGreenDizzyAnim',
       soprano_gold_dizzy: 'sopranoGoldDizzyAnim',
       soprano_red_dizzy: 'sopranoRedDizzyAnim',
-      kiosk_vendor_theatre_seated_idle: 'seatedVendorAnim',
-      audience_galabeya1_theatre_seated_idle: 'seatedGalabeya1Anim',
-      audience_galabeya2_theatre_seated_idle: 'seatedGalabeya2Anim',
-      audience_suit_theatre_seated_idle: 'seatedSuitAnim',
-      audience_teal_man_theatre_seated_idle: 'seatedTealManAnim',
-      audience_cream_man_theatre_seated_idle: 'seatedCreamManAnim',
-      audience_taqiyah_man_theatre_seated_idle: 'seatedTaqiyahManAnim',
-      audience_yellow_woman_theatre_seated_idle: 'seatedYellowWomanAnim',
-      audience_pink_woman_theatre_seated_idle: 'seatedPinkWomanAnim',
-      audience_maroon_woman_theatre_seated_idle: 'seatedMaroonWomanAnim',
-      audience_teal_woman_theatre_seated_idle: 'seatedTealWomanAnim',
       // The shared mic group's four composite states. Listed here purely so the loader in
       // create() and the anims pass in buildLevel() pick them up like every other sheet --
       // the roster below does NOT read them (they belong to one standalone sprite, not to
@@ -381,33 +392,20 @@ const PARTY = {
   castContentHeight: 140,
   bossContentHeight: 160,
 };
-// Same ordering as the other two levels: background behind everything, cast behind the
-// hero, the boss between them (she arrives downstage of the cast), audience nearer the
-// camera than the deck. The audience sits well below the hero's feet, so drawing it in
-// front of him costs nothing and matches how FARA7 stages its own foreground crowd.
-const PARTY_DEPTH = { background: -10, cast: -5, boss: -3, audienceBack: 1, audienceFront: 2 };
+// Background behind everything, cast behind the hero, and the boss between them when she
+// arrives downstage of the cast.
+const PARTY_DEPTH = { background: -10, cast: -5, boss: -3 };
 
 // Level 3's own sheets. The interactive cast is NOT here -- it is the Level 1 band plus the
 // Level 2 sopranos, whose sheets/anims are already registered by those two tables above.
-// What is new to this level: the Party-context seated audience, the femme fatale, and the
-// animated (heart-marquee lit) background.
+// What is new to this level: the femme fatale and the animated (heart-marquee lit)
+// background.
 const LEVEL3_ANIM_GROUPS = {
   loops: {
     frameRate: 8,
     repeat: -1,
     sheets: {
       femme_fatale_idle: 'femmeFataleIdleAnim',
-      kiosk_vendor_party_seated_idle: 'partyVendorAnim',
-      audience_galabeya1_party_seated_idle: 'partyGalabeya1Anim',
-      audience_galabeya2_party_seated_idle: 'partyGalabeya2Anim',
-      audience_suit_party_seated_idle: 'partySuitAnim',
-      audience_teal_man_party_seated_idle: 'partyTealManAnim',
-      audience_cream_man_party_seated_idle: 'partyCreamManAnim',
-      audience_taqiyah_man_party_seated_idle: 'partyTaqiyahManAnim',
-      audience_yellow_woman_party_seated_idle: 'partyYellowWomanAnim',
-      audience_pink_woman_party_seated_idle: 'partyPinkWomanAnim',
-      audience_maroon_woman_party_seated_idle: 'partyMaroonWomanAnim',
-      audience_teal_woman_party_seated_idle: 'partyTealWomanAnim',
     },
   },
   // 10fps -- a walk cycle, same rate as every other walk-in in this file.
@@ -512,10 +510,8 @@ class LevelScene extends Phaser.Scene {
     this.load.spritesheet('phone_pull', s.phone_pull.file, { frameWidth: s.phone_pull.frameWidth, frameHeight: s.phone_pull.frameHeight });
     this.load.spritesheet('phone_read', s.phone_read.file, { frameWidth: s.phone_read.frameWidth, frameHeight: s.phone_read.frameHeight });
     this.load.spritesheet('phone_check_idle', s.phone_check_idle.file, { frameWidth: s.phone_check_idle.frameWidth, frameHeight: s.phone_check_idle.frameHeight });
-    // NOTE: kiosk_vendor_idle/kiosk_vendor_love (his STANDING + dizzy sheets) are
-    // deliberately no longer loaded. GAME_PLAN section 0 retires the vendor as an
-    // interactive character everywhere; he is passive-only now, and both levels use their
-    // own seated sheet for him (kiosk_vendor_fara7_seated_idle / _theatre_seated_idle).
+    // NOTE: kiosk_vendor_idle/kiosk_vendor_love (his standing + dizzy sheets) are
+    // deliberately no longer loaded. GAME_PLAN section 0 retires the vendor everywhere.
     this.load.spritesheet('musician_drums_idle', s.musician_drums_idle.file, { frameWidth: s.musician_drums_idle.frameWidth, frameHeight: s.musician_drums_idle.frameHeight });
     this.load.spritesheet('musician_drums_love', s.musician_drums_love.file, { frameWidth: s.musician_drums_love.frameWidth, frameHeight: s.musician_drums_love.frameHeight });
     this.load.spritesheet('musician_keyboard_idle', s.musician_keyboard_idle.file, { frameWidth: s.musician_keyboard_idle.frameWidth, frameHeight: s.musician_keyboard_idle.frameHeight });
@@ -525,7 +521,7 @@ class LevelScene extends Phaser.Scene {
     this.load.spritesheet('dizzy_love', s.dizzy_love.file, { frameWidth: s.dizzy_love.frameWidth, frameHeight: s.dizzy_love.frameHeight });
     // Band walk-in sheets are registered by a separate asset pass. Skipping a key that
     // isn't in assets.json (yet) is deliberate rather than a crash: buildInteractiveActors()
-    // degrades that actor to "spawns in place", which is exactly the vendor's behaviour.
+    // degrades that actor to "spawns in place".
     for (const walkInKey of ACTOR_WALK_IN_SHEETS) {
       if (!s[walkInKey]) continue;
       this.load.spritesheet(walkInKey, s[walkInKey].file, { frameWidth: s[walkInKey].frameWidth, frameHeight: s[walkInKey].frameHeight });
@@ -734,8 +730,8 @@ class LevelScene extends Phaser.Scene {
 
     this.passiveAudience = [];
     this.buildFara7Actors();
-    this.buildFara7Audience();
-    this.buildFara7Dressing();   // pushes onto the same list -- must run after the above
+    this.buildFara7Crowd();      // pushes into the array initialized above
+    this.buildFara7Dressing();   // pushes into the same array
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keyA = this.input.keyboard.addKey('A');
@@ -823,7 +819,7 @@ class LevelScene extends Phaser.Scene {
     this.partyBgLit = false;            // guard preventing swapToLitPartyBackground double-fire
     // The femme fatale. Deliberately NOT a member of this.interactiveActors -- that is what
     // structurally guarantees she can never be hit-counted or made dizzy (the same
-    // guarantee that makes the passive audience unhittable), rather than a flag that a
+    // guarantee used by other non-roster scenery), rather than a flag that a
     // future edit to the shared machinery could forget to check. See tryHitBoss().
     this.boss = null;
     // Separate Level 2 and Level 3 mic groups. Each owns its own walker latch and joined
@@ -1122,9 +1118,8 @@ class LevelScene extends Phaser.Scene {
   // cast (different sheets, marks and entrance paths) without touching any of the shared
   // machinery. Direct counterpart of buildTheatreActors() below.
   //
-  // FOUR band members, all hittable, all hitsRequired: 3. The kiosk vendor is NOT here --
-  // GAME_PLAN section 0 retires him as an interactive character; he is passive-only, and
-  // lives in buildFara7Audience() below.
+  // FOUR band members, all hittable, all hitsRequired: 3. GAME_PLAN section 0 retires the
+  // kiosk vendor from the roster.
   buildFara7Actors() {
     const loops = LEVEL1_ANIM_GROUPS.loops.sheets;
     // Marks run left-to-right across the deck's left half, clear of the hero's own play
@@ -1173,99 +1168,121 @@ class LevelScene extends Phaser.Scene {
 
     // Starts are spread across ~20s rather than bunched at boot, per GAME_PLAN section 0
     // ("hit windows spread evenly across the level's actual running time"): the last man
-    // reaches his mark around 0:24, leaving half the level to land the remaining hits
+    // reaches his mark around 0:21, leaving half the level to land the remaining hits
     // before the 0:50 solo / 0:53 exit. The level still opens with only Manos on stage --
     // buildInteractiveActors() parks every entrance actor hidden on its wing mark.
     //
-    // Marks recalibrated via the Stage Blocking Board tool (Hazem, 2026-09-09): the band
-    // now spans both sides of Manos's spawn (690) instead of clustering left. Drums (344)
-    // is the only LEFT-wing entrant now, so no ordering conflict there. RIGHT wing has
-    // three: keyboard (498), tabla (923), accordion (1016) -- per the furthest-from-wing-
-    // goes-first invariant (wingX=1330), keyboard is furthest so it starts first, then
-    // tabla, then accordion, or a later entrant would walk through an earlier one already
-    // parked closer to the wing. Accordion moved from the left wing to the right wing
-    // entirely, since its new mark (1016) is well past centre stage.
+    // Marks recalibrated (RUN 21, Hazem, 2026-09-10) to match the original reference photo's
+    // grouping (`02_Assets/New Environments/Level 1 - fara7/Fara7 - Lights - People.jpg`):
+    // accordion + keyboard together on the LEFT, tabla + drums together on the RIGHT,
+    // flanking Manos/the wedding couple in the middle. Both left marks (344/498) sit below
+    // FARA7.walkMinX(610); both right marks (980/1100) sit above walkMaxX(950) -- this also
+    // fixes a pre-existing issue where the old tabla mark (923) sat INSIDE that box.
+    // Entrance ordering re-derived per wing under the same furthest-from-wing-goes-first
+    // invariant: left entry x=30 -- keyboard travels 468px vs. accordion's 314px, so
+    // keyboard starts first and parks farther inward; right entry x=1330 -- tabla travels
+    // 350px vs. drums' 230px, so tabla starts first. Same start-time SET as before
+    // (1500/7000/13500/20000, same ~18.5s spread), just reassigned to the new grouping.
+    // Known tradeoff, not yet live-verified: the tabla/drums PLAYING poses have measured
+    // ~31px of horizontal silhouette overlap and drums overhangs the deck edge by ~17px --
+    // acceptable to keep current character scale, but flagged for a visual check once this
+    // is actually on screen; revisit spacing/scale if it reads as merged bodies.
     this.buildInteractiveActors([
-      bandMember('drums', 344, musician('drums', 'Drums'), 1500, 'left'),
-      bandMember('keyboard', 498, musician('keyboard', 'Keyboard'), 7000, 'right'),
+      bandMember('keyboard', 498, musician('keyboard', 'Keyboard'), 1500, 'left'),
+      bandMember('accordion', 344, musician('accordion', 'Accordion'), 7000, 'left'),
       // The tabla player -- a genuinely new fourth band member (GAME_PLAN section 0), and
       // the one the old street roster was missing entirely. His sheets do not follow the
       // musician_* naming, hence the literal keys, including his playing loop.
-      bandMember('tabla', 923, {
+      bandMember('tabla', 980, {
         idle: { textureKey: 'tabla_player_standing_idle', animationKey: loops.tabla_player_standing_idle },
         walkIn: { textureKey: 'tabla_player_walkin', animationKey: ACTOR_WALK_IN_ANIMS.tabla_player_walkin },
         dizzy: { textureKey: 'tabla_player_dizzy_love', animationKey: loops.tabla_player_dizzy_love },
         performance: bandPerformanceVisual('tabla_player_playing'),
       }, 13500, 'right'),
-      bandMember('accordion', 1016, musician('accordion', 'Accordion'), 20000, 'right'),
+      bandMember('drums', 1100, musician('drums', 'Drums'), 20000, 'right'),
     ]);
   }
 
-  // The 11 passive wedding guests, INCLUDING the kiosk vendor. Deliberately not
-  // interactive actors: no hit test, no state machine, no entrance -- ordinary looping
-  // sprites, kept in a list only so destroyPassiveAudience() can tear them down.
-  // Same code shape as buildTheatreAudience() below.
+  // RUN 21's 4 new foreground crowd groups (3 seated men each), replacing the crowd
+  // RUN 20 deleted wholesale. Matches the reference photo's own treatment: deliberately
+  // secondary/lower-detail than the cast, seen mostly from behind, minimal motion (a
+  // restrained clap or small sway) at a slow 4fps loop. Ordinary sprites only -- no
+  // physics, no entrance, no hit state -- using the same this.passiveAudience array +
+  // destroyPassiveAudience() teardown the dressing sprites already share.
   //
-  // Two differences from the Theatre's crowd, both forced by the art rather than chosen:
-  //  1. These fara7_seated sheets are real BACK-VIEW SEATED poses (verified by eye against
-  //     frame 0), not the standing figures the Theatre crops into seats -- so there is no
-  //     seat-back line to crop at and clipBottomY stays null.
-  //  2. The Fara7 background has NO drawn seating at all (it is an empty plate: deck,
-  //     flower bed, marquee, pavement). There is nothing to measure rows against, so the
-  //     two rows below are eyeballed depth bands on the foreground pavement, sized by
-  //     perspective (nearer row larger). Their heads deliberately stay BELOW the deck's
-  //     front lip so a foreground crowd can never occlude the hero standing on it, which
-  //     costs some realism -- a real front-row head would rise above a 70px-high stage --
-  //     and buys a readable playfield. Flagged as a judgement call, not a measurement.
-  buildFara7Audience() {
-    const sheets = LEVEL1_ANIM_GROUPS.loops.sheets;
-    // [textureKey, x, headTopY, figureHeight, depth]. footY runs far below the canvas on
-    // purpose: the frame's own bottom edge is what crops these figures, exactly as the
-    // locked composition crops its foreground crowd.
+  // Placement: 4 groups spread left-to-right (centre-x 172/516/860/1204), each scaled to
+  // its OWN measured content box capped at 180px tall / 336px wide, preserving aspect
+  // ratio -- every group here is wider than tall (3 men side by side), so all 4 end up
+  // width-capped in practice, not height-capped. `top` is the measured world-Y where each
+  // group's real background placement was checked against the actual stage art; the
+  // resulting foot/anchor Y (top + this group's own scaled height) intentionally runs
+  // past the bottom of the 768-tall canvas for all 4 -- the camera's own edge crops their
+  // lower bodies, matching the reference photo's own foreground-crowd framing, no
+  // clipBottomY needed for this (contrast with the old pre-RUN-20 audience, which DID use
+  // clipBottomY to crop at a background seat-line -- there's no such line here).
+  // Staggered starting frames (explicit indices, not setProgress() fractions) so the 4
+  // groups don't clap in lockstep.
+  buildFara7Crowd() {
+    const sheets = LEVEL1_ANIM_GROUPS.crowd.sheets;
     const placements = [
-      ['audience_galabeya1_fara7_seated_idle', 120, 646, 300, FARA7_DEPTH.audienceBack],
-      ['audience_suit_fara7_seated_idle', 350, 642, 300, FARA7_DEPTH.audienceBack],
-      ['audience_teal_man_fara7_seated_idle', 575, 648, 300, FARA7_DEPTH.audienceBack],
-      ['audience_yellow_woman_fara7_seated_idle', 800, 644, 300, FARA7_DEPTH.audienceBack],
-      ['audience_galabeya2_fara7_seated_idle', 1030, 648, 300, FARA7_DEPTH.audienceBack],
-      ['audience_maroon_woman_fara7_seated_idle', 1255, 643, 300, FARA7_DEPTH.audienceBack],
-      ['audience_cream_man_fara7_seated_idle', 235, 692, 380, FARA7_DEPTH.audienceFront],
-      ['audience_pink_woman_fara7_seated_idle', 465, 696, 380, FARA7_DEPTH.audienceFront],
-      // The vendor, seated dead centre in the front row -- the most visible spot on the
-      // level, so "he is not hittable" is verifiable by eye rather than only in code.
-      ['kiosk_vendor_fara7_seated_idle', 690, 690, 380, FARA7_DEPTH.audienceFront],
-      ['audience_taqiyah_man_fara7_seated_idle', 915, 694, 380, FARA7_DEPTH.audienceFront],
-      ['audience_teal_woman_fara7_seated_idle', 1145, 690, 380, FARA7_DEPTH.audienceFront],
+      // [textureKey, centreX, topY, nativeContentWidth, nativeContentHeight, startFrame]
+      ['fara7_crowd_group_a', 172, 636, 644, 304, 0],
+      ['fara7_crowd_group_b', 516, 642, 672, 314, 1],
+      ['fara7_crowd_group_c', 860, 638, 675, 318, 2],
+      ['fara7_crowd_group_d', 1204, 644, 647, 300, 3],
     ];
-    this.passiveAudience = placements
-      .filter(([textureKey]) => this.cfg.sprites[textureKey])
-      .map(([textureKey, x, headTopY, figureHeight, depth], i) => {
-        const sprite = this.add.sprite(x, headTopY + figureHeight, textureKey, 0).setDepth(depth);
-        // setActorVisual() owns the origin/scale/crop maths for every actor sprite in this
-        // game; a minimal stand-in object is enough to reuse it rather than re-deriving
-        // the same arithmetic here (which is exactly how the two copies it replaced drifted).
-        this.setActorVisual(
-          { sprite, spec: { displayContentHeight: figureHeight, clipBottomY: null } },
-          { textureKey, animationKey: sheets[textureKey] }
-        );
-        // Stagger the shared 8fps loop so eleven people don't breathe in lockstep.
-        sprite.anims.setProgress((i % 8) / 8);
-        return sprite;
-      });
+    for (const [textureKey, x, topY, nativeW, nativeH, startFrame] of placements) {
+      if (!this.cfg.sprites[textureKey]) continue;
+      const scale = Math.min(180 / nativeH, 336 / nativeW);
+      const displayContentHeight = nativeH * scale;
+      const sprite = this.add.sprite(x, topY + displayContentHeight, textureKey, 0)
+        .setDepth(FARA7_DEPTH.crowd);
+      this.setActorVisual(
+        { sprite, spec: { displayContentHeight, clipBottomY: null } },
+        { textureKey, animationKey: sheets[textureKey] }
+      );
+      sprite.anims.setCurrentFrame(sprite.anims.currentAnim.frames[startFrame]);
+      this.passiveAudience.push(sprite);
+    }
   }
 
   // Groom and bride: seated set-dressing on the deck itself (GAME_PLAN section 0 --
   // "not part of the hit/dizzy mechanic"). No hit state, no entrance, no collision. They
-  // ride the same this.passiveAudience list as the crowd purely so one teardown covers
-  // both, which is why this must run AFTER buildFara7Audience() assigns that list.
+  // use the this.passiveAudience array initialized in buildLevel() so the existing scene
+  // teardown continues to own them.
   //
   // Content height 150/165 against the hero's 214.5: a seated adult reads ~0.7 of standing
   // height, and the bride's gown spreads a little wider/taller than the groom's suit.
   buildFara7Dressing() {
     const sheets = LEVEL1_ANIM_GROUPS.loops.sheets;
+    const dressingSheets = LEVEL1_ANIM_GROUPS.dressing.sheets;
+    // RUN 22: replaced the two separate bride/groom sprites with one combined sprite --
+    // both seated together on an actual heart-shaped "kosha" chair, matching the reference
+    // photo's real prop (the two-sprite version below was a positioning-only stand-in from
+    // RUN 21, since the shipped background has no heart-chair prop of its own). Centre-x is
+    // the midpoint of the two old marks (795 + 880) / 2 = 837.5, so the couple lands in the
+    // same place they already read correctly beside Manos. Caps 230x185 per the accepted
+    // raw art's measured content box (546x477 native, content-height-bound at this cap).
+    const coupleKey = 'fara7_couple_heart_chair_idle';
+    if (this.cfg.sprites[coupleKey] && dressingSheets[coupleKey]) {
+      const meta = this.cfg.sprites[coupleKey];
+      const scale = Math.min(185 / meta.contentHeight, 230 / meta.contentWidth);
+      const displayContentHeight = meta.contentHeight * scale;
+      const sprite = this.add.sprite(837.5, FARA7.stageFootY, coupleKey, 0)
+        .setDepth(FARA7_DEPTH.dressing);
+      this.setActorVisual(
+        { sprite, spec: { displayContentHeight, clipBottomY: null } },
+        { textureKey: coupleKey, animationKey: dressingSheets[coupleKey] }
+      );
+      sprite.anims.setProgress(0.5);
+      this.passiveAudience.push(sprite);
+      return;
+    }
+    // Fallback: the two separate sprites, kept working if the combined asset is ever
+    // missing/unregistered.
     const placements = [
-      ['husband_groom_seated_idle', 1030, 150],
-      ['wife_bride_seated_idle', 1115, 165],
+      ['wife_bride_seated_idle', 795, 165],
+      ['husband_groom_seated_idle', 880, 150],
     ];
     for (const [textureKey, x, contentHeight] of placements) {
       if (!this.cfg.sprites[textureKey]) continue;
@@ -1397,64 +1414,6 @@ class LevelScene extends Phaser.Scene {
     this.destroyMic('partyMic');
   }
 
-  // The 11 passive theatre-goers. Deliberately NOT interactive actors: no hit test, no
-  // state machine, no entrance -- ordinary looping sprites, kept in a list only so
-  // destroyPassiveAudience() can tear them down.
-  //
-  // The "seated" sheets are actually back-view STANDING figures; the seat illusion comes
-  // entirely from cropping each one at its row's seat-back top line, the same trick the
-  // Level 1 vendor uses to stand behind his kiosk counter (clipBottomY). SEAT_VISIBLE is
-  // the fraction of the figure left above that line -- head and shoulders.
-  buildTheatreAudience() {
-    const SEAT_VISIBLE = 0.28;
-    const sheets = LEVEL2_ANIM_GROUPS.loops.sheets;
-    // [textureKey, x, seatTopY, figureHeight]. seatTopY is the measured top edge of that
-    // row's seat backs in the background art; figureHeight is the whole (mostly hidden)
-    // figure's on-screen content height, which both sets how far the head rises above the
-    // seat and carries the row's perspective -- back rows small, front rows large.
-    //
-    // Rows nearer the stage (seatTopY <= 548) are placed on the flanks only: their heads
-    // sit in the same y band as the player at the apron, and a centre-column head there
-    // would tangle with him. The centre columns use the nearer rows instead, whose heads
-    // are comfortably below his feet.
-    const placements = [
-      ['audience_suit_theatre_seated_idle', 360, 515, 80],
-      ['audience_galabeya1_theatre_seated_idle', 1010, 515, 80],
-      ['audience_cream_man_theatre_seated_idle', 300, 524, 92],
-      ['audience_taqiyah_man_theatre_seated_idle', 1060, 524, 92],
-      ['audience_galabeya2_theatre_seated_idle', 1120, 535, 108],
-      ['audience_teal_man_theatre_seated_idle', 230, 548, 128],
-      ['kiosk_vendor_theatre_seated_idle', 520, 565, 155],
-      ['audience_pink_woman_theatre_seated_idle', 880, 565, 155],
-      ['audience_maroon_woman_theatre_seated_idle', 350, 590, 195],
-      ['audience_yellow_woman_theatre_seated_idle', 1150, 590, 195],
-      ['audience_teal_woman_theatre_seated_idle', 1000, 622, 250],
-    ];
-
-    this.passiveAudience = placements
-      .filter(([textureKey]) => this.cfg.sprites[textureKey])
-      .map(([textureKey, x, seatTopY, figureHeight], i) => {
-        const footY = seatTopY + (1 - SEAT_VISIBLE) * figureHeight;
-        const sprite = this.add.sprite(x, footY, textureKey, 0).setDepth(THEATRE_DEPTH.audience);
-        // setActorVisual() owns the origin/scale/crop maths for every actor sprite in this
-        // game; a minimal stand-in object is enough to reuse it rather than re-deriving
-        // the same arithmetic here (which is exactly how the two copies it replaced drifted).
-        this.setActorVisual(
-          { sprite, spec: { displayContentHeight: figureHeight, clipBottomY: seatTopY } },
-          { textureKey, animationKey: sheets[textureKey] }
-        );
-        // Stagger the shared 8fps loop so eleven people don't breathe in lockstep.
-        sprite.anims.setProgress((i % 8) / 8);
-        return sprite;
-      });
-    // Existing, passive audience art selected for the 1:45 reaction flourish. Keeping a
-    // reference does not make it interactive; it remains outside interactiveActors and
-    // therefore has no route into hit testing.
-    this.theatreSoloAudienceSprite = this.passiveAudience.find(
-      (sprite) => sprite.texture.key === 'audience_pink_woman_theatre_seated_idle'
-    ) || null;
-  }
-
   // Level 3's roster: BOTH earlier casts on one deck (GAME_PLAN section 0 -- "both casts
   // together, the fara7 band + the sopranos, walk in one by one"). Seven actors, all
   // hitsRequired: 3, all through the same buildInteractiveActors() the other two levels
@@ -1538,53 +1497,6 @@ class LevelScene extends Phaser.Scene {
     this.buildPartyMic();
   }
 
-  // The 11 passive party guests, INCLUDING the kiosk vendor. Same shape and same
-  // deliberate non-interactivity as buildFara7Audience()/buildTheatreAudience(): ordinary
-  // looping sprites, no hit test, no state machine, no entrance.
-  //
-  // Placement follows Level 1's model, not Level 2's: these party_seated sheets are
-  // back-view full-body figures and the Party art draws its own white plastic chairs and
-  // round tables in the foreground, so there is no single seat-back line to crop every row
-  // at (clipBottomY stays null) -- the canvas's own bottom edge crops them, exactly as the
-  // locked populated reference crops its front row. Two depth bands, sized by perspective.
-  //
-  // Both head-top lines sit BELOW the deck's front lip (567) on purpose: a real front-row
-  // head would rise past a raised stage, but letting one do so here would put a crowd
-  // silhouette across the hero's feet. Same judgement call, and same cost, as Level 1's.
-  buildPartyAudience() {
-    const sheets = LEVEL3_ANIM_GROUPS.loops.sheets;
-    // [textureKey, x, headTopY, figureHeight, depth]. x values are the drawn chairs' own
-    // centres, read off the base plate (back row of chairs tops out at y~595, the nearer
-    // row at y~620-635), so each guest reads as sitting IN a chair rather than beside one.
-    const placements = [
-      ['audience_galabeya1_party_seated_idle', 110, 575, 255, PARTY_DEPTH.audienceBack],
-      ['audience_suit_party_seated_idle', 315, 575, 255, PARTY_DEPTH.audienceBack],
-      ['audience_teal_man_party_seated_idle', 630, 573, 255, PARTY_DEPTH.audienceBack],
-      ['audience_yellow_woman_party_seated_idle', 895, 573, 255, PARTY_DEPTH.audienceBack],
-      ['audience_galabeya2_party_seated_idle', 1090, 575, 255, PARTY_DEPTH.audienceBack],
-      ['audience_maroon_woman_party_seated_idle', 1315, 573, 255, PARTY_DEPTH.audienceBack],
-      ['audience_cream_man_party_seated_idle', 210, 615, 323, PARTY_DEPTH.audienceFront],
-      ['audience_pink_woman_party_seated_idle', 430, 618, 323, PARTY_DEPTH.audienceFront],
-      // The vendor, front row dead centre -- the most visible seat on the level, so "he is
-      // not hittable" stays verifiable by eye, same as his Fara7 placement.
-      ['kiosk_vendor_party_seated_idle', 690, 615, 323, PARTY_DEPTH.audienceFront],
-      ['audience_taqiyah_man_party_seated_idle', 940, 618, 323, PARTY_DEPTH.audienceFront],
-      ['audience_teal_woman_party_seated_idle', 1180, 615, 323, PARTY_DEPTH.audienceFront],
-    ];
-    this.passiveAudience = placements
-      .filter(([textureKey]) => this.cfg.sprites[textureKey])
-      .map(([textureKey, x, headTopY, figureHeight, depth], i) => {
-        const sprite = this.add.sprite(x, headTopY + figureHeight, textureKey, 0).setDepth(depth);
-        this.setActorVisual(
-          { sprite, spec: { displayContentHeight: figureHeight, clipBottomY: null } },
-          { textureKey, animationKey: sheets[textureKey] }
-        );
-        // Stagger the shared 8fps loop so eleven people don't breathe in lockstep.
-        sprite.anims.setProgress((i % 8) / 8);
-        return sprite;
-      });
-  }
-
   destroyPassiveAudience() {
     this.cancelTheatreAudienceFlourish();
     for (const sprite of this.passiveAudience) sprite.destroy();
@@ -1597,7 +1509,7 @@ class LevelScene extends Phaser.Scene {
       // An actor whose walk-in sheet isn't registered in assets.json degrades to
       // spawning in place rather than throwing on an undefined metadata read -- the
       // sheets are registered by a separate asset pass, so "not there yet" is a real,
-      // reachable state, and the vendor already proves in-place spawning looks fine.
+      // reachable state.
       const hasWalkIn = !!(spec.walkIn && spec.entrance && this.cfg.sprites[spec.walkIn.textureKey]);
       // Same tolerance, same reason, for the playing-instrument sheets: three of the four
       // are registered by that separate asset pass, so "declared in the roster but not on
@@ -2675,9 +2587,8 @@ class LevelScene extends Phaser.Scene {
     for (const projectile of this.projectiles) projectile.sprite.destroy();
     this.projectiles = [];
     this.destroyInteractiveActors();
-    // Level 1's own crowd + wedding-party dressing AND its animated background: all three
-    // are Fara7-only scenery that would otherwise leak straight into the Theatre, since
-    // nothing else in this method touches them.
+    // Level 1's wedding-party dressing and animated background are Fara7-only scenery
+    // that would otherwise leak straight into the Theatre.
     this.destroyPassiveAudience();
     if (this.level1Bg) { this.level1Bg.destroy(); this.level1Bg = null; }
     this.cancelGesture();
@@ -2698,7 +2609,6 @@ class LevelScene extends Phaser.Scene {
     this.level2Bg.anims.play('theatreBgAnim', true);
     this.level2Bg.setDisplaySize(STAGE_VIEW.width, STAGE_VIEW.height);
     this.buildTheatreActors();
-    this.buildTheatreAudience();
 
     this.ground.setPosition(STAGE_VIEW.width / 2, interiorGroundY + 20);
     this.ground.setSize(STAGE_VIEW.width, 40);
@@ -2758,8 +2668,7 @@ class LevelScene extends Phaser.Scene {
     // The Theatre mic group and its join state are Level-2-only and outside the roster, so
     // nothing above reaches it. Party builds a fresh, separate mic below.
     this.destroyTheatreMic();
-    // The Theatre's own crowd AND its animated background: Level-2-only scenery that would
-    // otherwise leak straight into the Party, since nothing else here touches them.
+    // Clear the shared scenery list and Theatre's animated background before Party.
     this.destroyPassiveAudience();
     if (this.level2Bg) { this.level2Bg.destroy(); this.level2Bg = null; }
     this.cancelGesture();
@@ -2788,7 +2697,6 @@ class LevelScene extends Phaser.Scene {
     this.partyBg.setDisplaySize(STAGE_VIEW.width, STAGE_VIEW.height);
 
     this.buildPartyActors();
-    this.buildPartyAudience();
 
     this.ground.setPosition(STAGE_VIEW.width / 2, PARTY.stageFootY + 20);
     this.ground.setSize(STAGE_VIEW.width, 40);
@@ -2815,7 +2723,7 @@ class LevelScene extends Phaser.Scene {
     // `!this.level2Active`, so if the 2:12 fade-out ever preempts an unfinished Theatre
     // fade-in, level2Revealing stays true forever and silently blocks EVERY input branch
     // in update() for the rest of the run (observed live). Same class of leak as the
-    // Theatre cast/crowd/background torn down above, and the same single owner fixes it.
+    // Theatre cast/background torn down above, and the same single owner fixes it.
     this.level2Revealing = false;
     this.level3Active = true;
     this.level3Revealing = true;
@@ -2904,6 +2812,11 @@ class LevelScene extends Phaser.Scene {
 
     const icon = this.add.sprite(spawnX, spawnY, texKey);
     icon.setFlipX(flip);
+    // RUN 21: Fara7's new foreground crowd sits at FARA7_DEPTH.crowd (1), in front
+    // of the default depth-0 world -- without this, a low-arcing throw could
+    // render BEHIND the crowd and visually vanish. Theatre/Party have no such
+    // foreground layer, so their projectiles keep the existing default depth.
+    if (!this.level2Active && !this.level3Active) icon.setDepth(2);
     this.projectiles.push({
       sprite: icon,
       vx: flip ? -PROJECTILE_SPEED : PROJECTILE_SPEED,
@@ -3110,8 +3023,8 @@ class LevelScene extends Phaser.Scene {
         this.debugRapidFireAccumMs = 0;
       } else {
         this.debugRapidFireAccumMs += delta;
-        if (this.debugRapidFireAccumMs >= 80) {
-          this.debugRapidFireAccumMs %= 80;
+        if (this.debugRapidFireAccumMs >= HEART_FIRE_INTERVAL_MS) {
+          this.debugRapidFireAccumMs %= HEART_FIRE_INTERVAL_MS;
           this.spawnProjectileDirectional('heart', true);
           this.spawnProjectileDirectional('heart', false);
         }
@@ -3140,7 +3053,7 @@ class LevelScene extends Phaser.Scene {
 
     // Confinement (GAME_PLAN section 0): keep him inside a play area short of the screen
     // edges, not the full canvas width. Both levels' art is a perspective set, so a
-    // full-size character standing over the side walls, the audience or the band reads as
+    // full-size character standing over the side walls or the band reads as
     // a giant. Lifts during phone cutscenes (cutsceneActive === true) in both Level 1 and
     // Theatre so he can walk clean off-frame (bounds === null).
     const bounds = this.cutsceneActive ? null
