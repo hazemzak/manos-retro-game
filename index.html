@@ -220,7 +220,7 @@
      Level 2 cinema interior, shown for real song lyrics during the song-clock
      ~60s-118.87s window (see src/game.js's renderLyrics()/positionCinemaLyrics() call).
      Positioned/sized via JS (see positionCinemaLyrics() below) against the measured
-     screen inset in the 1376x768 design canvas. Upper placement is deliberate: it keeps
+     screen inset in the 1280x720 design canvas. Upper placement is deliberate: it keeps
      clear of a jumping player (see plan geometry) without an occlusion mask. */
   #cinema-screen-lyrics {
     position: fixed;
@@ -309,7 +309,14 @@
 <div id="credits-overlay" hidden>
   <div id="credits-content">[CREDITS PLACEHOLDER -- Hazem to provide]</div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<!-- Phaser is vendored so the game runs with no network: sandboxed agents could not verify
+     anything while this was CDN-only (ERR_NETWORK_ACCESS_DENIED). CDN stays as the fallback. -->
+<script src="vendor/phaser-3.80.1.min.js"></script>
+<script>
+  if (!window.Phaser) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"><\/script>');
+  }
+</script>
 <script src="src/game.js"></script>
 <script>
   document.getElementById('music-volume').addEventListener('input', (e) => {
@@ -372,32 +379,35 @@
   // retired blank cinema-hall image). This is the stage backdrop between the curtain legs,
   // above the sopranos' heads (their content tops sit at y=328) and below the valance's
   // lowest dip (~y=248) -- the only clear, unoccupied space on the new background.
-  const CINEMA_LYRIC_RECT = { x: 520, y: 252, width: 340, height: 58 };
+  // INTERIM (2026-09-10): the old 1376x768 rect (520, 252, 340x58) converted proportionally
+  // to the 1280x720 canvas; not yet re-measured against the new theatre plate.
+  const CINEMA_LYRIC_RECT = { x: 483.7, y: 236.3, width: 316.3, height: 54.4 };
   function positionCinemaLyrics() {
     const canvas = window.game && window.game.canvas;
     const el = document.getElementById('cinema-screen-lyrics');
     if (!canvas || !el) return;
     const rect = canvas.getBoundingClientRect();
-    const sx = rect.width / 1376;
-    const sy = rect.height / 768;
+    const sx = rect.width / 1280;
+    const sy = rect.height / 720;
     el.style.left = (rect.left + CINEMA_LYRIC_RECT.x * sx) + 'px';
     el.style.top = (rect.top + CINEMA_LYRIC_RECT.y * sy) + 'px';
     el.style.width = (CINEMA_LYRIC_RECT.width * sx) + 'px';
     el.style.height = (CINEMA_LYRIC_RECT.height * sy) + 'px';
-    // Shrink-to-fit: start at 24 design px, step down 1 design px at a time until the
-    // text fits both box dimensions (1px rounding tolerance), floor at 18 design px --
-    // if it still doesn't fit at 18px, leave it there rather than looping forever.
+    // Shrink-to-fit: start at 22 design px, step down 1 design px at a time until the
+    // text fits both box dimensions (1px rounding tolerance), floor at 17 design px --
+    // if it still doesn't fit at 17px, leave it there rather than looping forever.
+    // (Were 24/18 on the 1376px canvas; same on-screen size.)
     // Skipped while hidden: a hidden element has zero layout size, so fitting would
     // measure nothing meaningful -- src/game.js calls this hook again right after it
     // un-hides the element with new text.
     if (el.hidden || !el.textContent) {
-      el.style.setProperty('--cinema-lyric-size', (24 * sx) + 'px');
+      el.style.setProperty('--cinema-lyric-size', (22 * sx) + 'px');
       return;
     }
-    let designSize = 24;
+    let designSize = 22;
     el.style.setProperty('--cinema-lyric-size', (designSize * sx) + 'px');
     while (
-      designSize > 18 &&
+      designSize > 17 &&
       (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)
     ) {
       designSize -= 1;

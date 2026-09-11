@@ -5,17 +5,46 @@ const SPEED = 260;
 const JUMP_VELOCITY = -750;
 const GRAVITY_Y = 1800;
 const PROJECTILE_SPEED = 700;
-const PROJECTILE_DESCENT_SPEED = 140;
-// Real tempo of assets/audio/manos_theme.mp3, measured via beat-tracking (2 independent
-// methods agreed exactly: 123.05 BPM). ms-per-minute / BPM = ms per beat. Try once-per-beat
-// first; halve the BPM (123.05/2) instead for a once-per-2-beats feel if that reads better
-// in practice -- Hazem compares both by ear.
-const HEART_FIRE_INTERVAL_MS = 60000 / 123.05; // ~487.6067ms (once per beat)
-// const HEART_FIRE_INTERVAL_MS = 60000 / (123.05 / 2); // ~975.2133ms (half-tempo alternative)
-// The design canvas both fixed-screen levels are composed against (matches the
-// Phaser.Game width/height at the bottom of this file). Neither level scrolls, so this
-// doubles as the world bounds, the camera bounds and the background's display size.
-const STAGE_VIEW = { width: 1376, height: 768 };
+const PROJECTILE_TTL_MS = 3000;
+const PROJECTILE_WORLD_MARGIN = 50;
+// One body-relative launch point for every player shot. Measured from the heart gesture's
+// release pose: (0.877 - 0.5) * 405 / 386 body-heights forward, and
+// (1 - 0.197) * 408 / 386 body-heights above the player's bottom-centre root. The
+// reference body height is independent of the active sheet's canvas, so changing level,
+// gesture type or singing frame cannot move this socket around Manos's body.
+const PLAYER_PROJECTILE_SOCKET = Object.freeze({
+  forwardBodyHeights: 0.3955,
+  upBodyHeights: 0.8488,
+});
+// The design canvas every fixed-screen level is composed against (the Phaser.Game
+// width/height at the bottom of this file reads it). No level scrolls, so this doubles as
+// the world bounds and the camera bounds -- and it is the new environment plates' own
+// 1280x720, so plate-local coordinates (blocking_coordinates.json) ARE world coordinates.
+const STAGE_VIEW = { width: 1280, height: 720 };
+// INTERIM (2026-09-10): placements still waiting on design calls (the band, the crowd,
+// Theatre's spawn side, Party's percussionist) were never re-blocked against the new
+// plates. Their old 1376x768 numbers are converted proportionally so they keep their place
+// in the frame; every call site of these two is a value to replace once measured.
+const interimX = (x) => x * 1280 / 1376;
+const interimY = (y) => y * 720 / 768;
+// THE tempo of assets/audio/manos_theme.mp3, and the only one in this file: everything
+// musical below derives from it. Re-measured 2026-09-10 by a linear fit over all 363
+// beats librosa tracked (124.0008 BPM, 4.4ms rms residual, beat grid phase-aligned to
+// t=0 within 9ms). This supersedes RUN 20's 123.05, which was not the song's real tempo
+// but librosa's own lag-grid quantization (21 hops x 512/22050s = 0.4876s); at 3.7ms per
+// beat that error walks a full beat away from the track inside a minute of play, which
+// would have visibly desynced the heart cadence from the background pulse.
+const SONG_BPM = 124;
+const BEAT_MS = 60000 / SONG_BPM;    // 483.87ms
+const BAR_MS = 4 * BEAT_MS;          // 1935.48ms -- one background loop, 8 frames of an 8th note each
+// The M-key's tempo-synced heart cadence (RUN 20), now off the same constant as the
+// backgrounds so the two can never drift apart. Swap the commented line in for a
+// once-per-2-beats feel if the on-beat cadence reads too fast -- Hazem compares by ear.
+const HEART_FIRE_INTERVAL_MS = BEAT_MS;      // ~483.87ms (once per beat)
+// const HEART_FIRE_INTERVAL_MS = 2 * BEAT_MS;  // ~967.74ms (half-tempo alternative)
+// Each value is 8 separate 1280x720 images, not a sheet: an 8-frame strip (10240px) or a
+// 4x2 grid (5120x1440) would exceed the 4096px texture limit of mobile GPUs.
+const LEVEL_BACKGROUND_KEYS = ['level1_fara7_bg', 'level2_theatre_bg', 'level3_party_bg'];
 // Band walk-in sheets, texture key -> animation key. Kept in one place because three
 // separate passes need the same list (the loader in create(), the anims in buildLevel(),
 // and the Level 1 roster below), and because they are registered in assets.json by a
@@ -48,13 +77,90 @@ const BAND_PERFORMANCE_ANIM_GROUP = {
     tabla_player_playing: 'tablaPlayerPlayingAnim',
   },
 };
-// Manos's level-agnostic performance loop. Kept in the same grouped loader/animation
-// path as the cast performance sheets so it is loaded and registered once for every level.
-const PLAYER_PERFORMANCE_ANIM_GROUP = {
+// Player sheets are never overwritten during a level handoff. Each physical idle and
+// singing strip owns a texture/animation key, while semantic selection lives in
+// getPlayerVisual() below.
+const PLAYER_IDLE_ANIM_GROUP = {
+  frameRate: 4,
+  repeat: -1,
+  sheets: {
+    idle_fara7: 'idleFara7Anim',
+    idle_theatre: 'idleTheatreAnim',
+    idle_party: 'idlePartyAnim',
+  },
+};
+const PLAYER_SINGING_ANIM_GROUP = {
   frameRate: 8,
   repeat: -1,
-  sheets: { manos_stage_singing: 'manosStageSingingAnim' },
+  sheets: {
+    singing_fara7: 'singingFara7Anim',
+    singing_theatre: 'singingTheatreAnim',
+    singing_party: 'singingPartyAnim',
+  },
 };
+const PLAYER_DEATH_ANIM_GROUP = {
+  frameRate: 8,
+  repeat: 0,
+  sheets: { dizzy_death: 'dizzyDeathAnim' },
+};
+const PLAYER_LEVEL_REFERENCE_HEIGHTS = Object.freeze({
+  fara7: 233.4,
+  theatre: 143.2,
+  party: 176.0,
+});
+const PLAYER_VISUALS = Object.freeze({
+  idle: Object.freeze({
+    fara7: Object.freeze({ textureKey: 'idle_fara7', animationKey: 'idleFara7Anim' }),
+    theatre: Object.freeze({ textureKey: 'idle_theatre', animationKey: 'idleTheatreAnim' }),
+    party: Object.freeze({ textureKey: 'idle_party', animationKey: 'idlePartyAnim' }),
+  }),
+  singing: Object.freeze({
+    fara7: Object.freeze({ textureKey: 'singing_fara7', animationKey: 'singingFara7Anim' }),
+    theatre: Object.freeze({ textureKey: 'singing_theatre', animationKey: 'singingTheatreAnim' }),
+    party: Object.freeze({ textureKey: 'singing_party', animationKey: 'singingPartyAnim' }),
+  }),
+  walk: Object.freeze({ textureKey: 'walk', animationKey: 'walkAnim' }),
+  jump: Object.freeze({ textureKey: 'jump', animationKey: 'jumpAnim' }),
+  heart: Object.freeze({ textureKey: 'gesture_heart', animationKey: 'giveHeartAnim' }),
+  flowers: Object.freeze({ textureKey: 'gesture_flowers', animationKey: 'giveFlowersAnim' }),
+  phone_pull: Object.freeze({ textureKey: 'phone_pull', animationKey: 'phonePullAnim' }),
+  phone_read: Object.freeze({ textureKey: 'phone_read', animationKey: 'phoneReadAnim' }),
+  phone_check_idle: Object.freeze({ textureKey: 'phone_check_idle', animationKey: 'phoneCheckIdleAnim' }),
+  dizzy_love: Object.freeze({ textureKey: 'dizzy_love', animationKey: 'dizzyLoveAnim' }),
+  dizzy_death: Object.freeze({ textureKey: 'dizzy_death', animationKey: 'dizzyDeathAnim' }),
+  // --- Package G boss-kiss sequence stand-ins (docs/LEVEL3_BOSS_SEQUENCE_SPEC.md) --------
+  // None of these three sheets exist yet. Each state reads from exactly this one entry, so
+  // pointing it at the real generated sheet later (new textureKey/animationKey, registered
+  // and anims.create()'d the same way every other PLAYER_VISUALS entry is) is a one-line
+  // change confined to this block -- no other code in the boss-kiss sequence below needs to
+  // change.
+  // State 3 -- the moment the kiss lands ("Manos goes dizzy"). Stand-in: the retained old
+  // dizzy_love loop. Real art: spec sheet #1, "Dizzy (hit reaction)" (front view).
+  dizzy_hit: Object.freeze({ textureKey: 'dizzy_love', animationKey: 'dizzyLoveAnim' }),
+  // State 4 -- dizzy-in-love AND singing at once, not a separate stunned pause. Stand-in:
+  // same dizzy_love loop (playPlayerVisual's ignoreIfPlaying keeps this a seamless no-op
+  // transition from state 3 today; once real art gives this its own animationKey the swap
+  // between the two states will animate properly on its own). Real art: spec sheet #2,
+  // "Dizzy-in-love AND singing" (front view).
+  dizzy_singing: Object.freeze({ textureKey: 'dizzy_love', animationKey: 'dizzyLoveAnim' }),
+  // State 6 -- singing on the floor, continuing from the death's final pose. Stand-in: this
+  // entry's texture/anim are only used to look up dizzy_death's frame count in
+  // startFloorSinging() below, which freezes on its last frame rather than playing it (the
+  // death anim already ran once to get there) -- see that method's comment for the one-line
+  // swap once a real looping floor-singing anim exists. Real art: spec sheet #3, "Singing on
+  // the floor" (side view), built from the death guide's own frame 8 so the cut doesn't pop.
+  floor_singing: Object.freeze({ textureKey: 'dizzy_death', animationKey: 'dizzyDeathAnim' }),
+});
+// Boss-kiss sequence timing (docs/LEVEL3_BOSS_SEQUENCE_SPEC.md). Both holds are placeholders
+// standing in for a real animationcomplete-driven transition: dizzy_hit and dizzy_singing
+// currently share one looping stand-in sheet with no natural end, so there is nothing else to
+// time the state change off yet.
+const BOSS_KISS_DIZZY_HOLD_MS = 1200;
+const BOSS_KISS_SINGING_HOLD_MS = 3000;
+// "From her forehead" (spec), as a fraction of her measured content height above her foot
+// line. No measured forehead anchor exists -- her attack art is still ungenerated -- so this
+// is a stand-in approximation, not a plate mark.
+const BOSS_KISS_FOREHEAD_HEIGHT_RATIO = 0.92;
 // The keyboardist's cue-specific walk and ecstatic standing-rock loops. They are kept in
 // the same grouped loader/animation path as the ordinary instrument-playing sheets, but
 // split by cadence: the travelling pose matches every other 10fps walk while the standing
@@ -97,52 +203,71 @@ const ACTOR_PERFORM_FADE_MS = 250;
 // table above, which is what keeps sopranos and the boss out of the instrument path.
 // Whether the sheet is actually LOADED is a separate question, answered once in
 // buildInteractiveActors() against this.cfg.sprites.
-function bandPerformanceVisual(textureKey) {
+// `performanceHeight`, when given, becomes this visual's OWN displayContentHeight
+// (Package E's per-visual-height override -- see setActorVisual()): the plate's seated-
+// playing pose and its derived standing pose differ by ~1.3x for the same actor, so the
+// instrument-playing visual needs its own reference height rather than inheriting the
+// actor spec's standing default.
+function bandPerformanceVisual(textureKey, performanceHeight) {
   const animationKey = BAND_PERFORMANCE_ANIM_GROUP.sheets[textureKey];
-  return animationKey ? { kind: 'instrument', textureKey, animationKey } : null;
+  if (!animationKey) return null;
+  const visual = { kind: 'instrument', textureKey, animationKey };
+  if (performanceHeight !== undefined) visual.displayContentHeight = performanceHeight;
+  return visual;
 }
-// Every Level 1 actor is drawn at this on-screen content height regardless of how much
-// transparent padding its own sheet happens to carry (same root cause as
-// resizeBodyForTexture()'s content-height scaling for the player).
-const ACTOR_DISPLAY_CONTENT_HEIGHT = 214.52;
 
-// Level 1 (El Fara7) geometry. Every number is a design-canvas pixel (1376x768) measured
-// off the rendered level1_fara7_bg art itself (frame 0 blown up to 1376x768 with a 10px
-// grid, see .foreman/scratch/fara7_stage_zoom.png) -- none of it is carried over from
-// THEATRE, whose art is a completely different room and perspective.
+// Level 1 (El Fara7) geometry. Measured numbers come from
+// assets/generated/environments/hz-test-regen/blocking_coordinates.json (plate-local
+// 1280x720 == world); everything wrapped in interimX/interimY is an old 1376x768 value
+// proportionally converted and still waiting on a design call.
 //
-// ONE floor Y, not Theatre's stage/apron pair: the Fara7 art is a shallow raised wedding
-// deck (carpet top surface runs y 585 at the back to y 628 at the front lip, then a dark
-// ~70px front face down to the pavement). There is no second standable tier -- the only
-// other plane is the pavement in front, where nobody performs. So the whole cast shares
-// the deck's front-lip line.
+// The new plate is a raised wedding deck: carpet top y 528.7 (back) .. 566.2 (front lip),
+// deck front face 571.6..648.8, then plaza pavement. Manos stands on the front lip.
 const FARA7 = {
-  // The carpet's front lip. Deck spans roughly x 185..1175 at this line.
-  stageFootY: 628,
-  // Play area, short of the deck's own edges: the band's marks occupy 250..520 and the
-  // seated bride/groom 1030..1115, so the hero is boxed between them (this is the
-  // "confinement" GAME_PLAN section 0 asks for; it LIFTS for the scripted exit).
-  walkMinX: 610,
-  walkMaxX: 950,
-  // Centre stage, directly under the heart marquee (its centre reads at x~690).
-  playerSpawnX: 690,
-  // Stage-RIGHT entry mark, just off the right screen edge: every walk-in sheet in this
-  // project draws the character walking LEFT (verified by eye against frame 0 of
-  // musician_drums_walkin/tabla_player_walkin), so an actor entering from here travels
-  // left onto its mark with the art unflipped.
-  wingX: 1330,
-  // Stage-LEFT entry mark, the mirror of wingX: the deck's left edge is 185 at the lip and
-  // the right wing sits 155px beyond its own edge (1330 - 1175), so 30 gives the left wing
-  // the identical clearance. An actor entering from here has its walk-in sheet flipped
-  // (setFlipX) so the left-facing art reads as walking RIGHT onto its mark.
-  leftWingX: 30,
+  // Manos's ground line = the deck's front lip (measured, high confidence). Also the
+  // ground collider's top edge.
+  groundY: 566.2,
+  // Only the keyboard solo's temporary "walk toward the player" hand-off uses this shared
+  // line now (updateLevel1KeyboardSolo()) -- the band's own marks are FARA7.band below,
+  // each with its own measured foot line. Still INTERIM (no plate reference for a mid-
+  // stage walk-up mark): the old 628 front lip, converted.
+  stageFootY: interimY(628),
+  // Measured (BLOCKING_COORDINATES.md), per band member: footX/footY, the derived
+  // STANDING height (idle/walk-in/dizzy) and the plate's measured seated PERFORMANCE
+  // height (the playing-instrument loop). Package E: per-visual heights (see
+  // bandPerformanceVisual()/setActorVisual()) are what let one actor use both numbers.
+  // Owner decision: accordion and drums sit exactly on these marks even though the
+  // accordionist's chair leg lands at the deck edge and the drums sit on carpet that only
+  // exists in the populated plate -- exactness wins over comfort here.
+  band: {
+    accordion: { footX: 187.6, footY: 562.4, standingHeight: 204.4, performanceHeight: 155.3 },
+    keyboard: { footX: 306.2, footY: 561.6, standingHeight: 216.5, performanceHeight: 164.5 },
+    tabla: { footX: 956.9, footY: 561.6, standingHeight: 198.3, performanceHeight: 150.7 },
+    drums: { footX: 1102.4, footY: 562.4, standingHeight: 193.3, performanceHeight: 157.7 },
+  },
+  // INTERIM: play area between the band and the couple ("confinement", GAME_PLAN section
+  // 0; it LIFTS for the scripted exit). Old 610..950, converted.
+  walkMinX: interimX(610),
+  walkMaxX: interimX(950),
+  // Measured Manos mark (BLOCKING_COORDINATES.md); falls inside walkMinX..walkMaxX above.
+  playerSpawnX: 581.8,
+  // INTERIM (band entrances): stage-RIGHT entry mark just off the right screen edge. Every
+  // walk-in sheet draws its character walking LEFT, so an actor entering here travels left
+  // with the art unflipped.
+  wingX: interimX(1330),
+  // INTERIM: stage-LEFT entry mark, the mirror of wingX. An actor entering from here has
+  // its walk-in sheet flipped (setFlipX) so the left-facing art reads as walking RIGHT.
+  leftWingX: interimX(30),
   entranceSpeedPxPerSecond: 220,
+  // The bride/groom heart-chair (fara7_couple_heart_chair_idle), measured: chair centre,
+  // chair-feet line, content height (scale 0.2951).
+  couple: { x: 759.4, footY: 558.6, contentHeight: 140.8 },
 };
 // Background furthest back; the band and wedding-party dressing sit behind the hero.
 // crowd sits in FRONT of the band/dressing/hero (RUN 21's foreground crowd, per
-// the reference photo's own composition) -- see the Fara7-only projectile
-// depth override in spawnProjectileDirectional() for why thrown projectiles
-// need their own depth above this, or a low throw would render behind it.
+// the reference photo's own composition) -- see projectileForegroundDepth and
+// getProjectileDepth() for why thrown projectiles need their own depth above this,
+// or a low throw would render behind it.
 const FARA7_DEPTH = { background: -10, band: -5, dressing: -4, crowd: 1 };
 
 // Level 1's own sheets, same grouped shape (and same three consumers) as
@@ -158,12 +283,6 @@ const LEVEL1_ANIM_GROUPS = {
       husband_groom_seated_idle: 'groomSeatedAnim',
       wife_bride_seated_idle: 'brideSeatedAnim',
     },
-  },
-  // The GIF this sheet was converted from ran at 120ms per frame; frameRate is fps.
-  background: {
-    frameRate: 1000 / 120,
-    repeat: -1,
-    sheets: { level1_fara7_bg: 'fara7BgAnim' },
   },
   // RUN 21: the 4 new foreground crowd groups (3 men each), deliberately its own
   // slow loop -- a much lower frame rate than every other cast loop here, since
@@ -207,47 +326,43 @@ const KEYBOARD_SOLO_WALK_SPEED = 260;
 const SILENT_TRACK_SECONDS = 183.92816326530613;
 const CREDITS_SCROLL_DURATION_MS = 16000;
 
-// Level 2 (Theatre) geometry. Every number is a design-canvas pixel (1376x768) measured
-// off the theatre background art itself, not derived: stageFootY is the lit stage floor's
-// front lip, apronFootY the strip one step downstage of it where the player stands, and
-// walkMinX/walkMaxX the stage's own width, so he can't wander in front of the side walls
-// where the art's perspective would make him read as a giant.
-//
-// Why the player shares the sopranos' height band at all: thrown hearts/flowers descend
-// at a shallow fixed slope (see updateProjectiles()), so a player standing back in the
-// auditorium aisle -- the "correct" place for an audience member -- could never land a
-// hit on anyone on stage. Standing him at the apron, a couple of feet below the lip, is
-// the only placement where the projectile system reaches the cast.
+// Level 2 (Theatre) geometry, measured off the new plate (blocking_coordinates.json,
+// plate-local 1280x720 == world) except the interimX/interimY values. The new plate has
+// NO apron strip: the stage nosing drops straight into the seating, so Manos, the trio and
+// the mic all stand on the stage floor's front lip (stage floor x 405.7..863.5 at the lip).
+// The shared target-guided projectile flight still reaches the cast from there.
 const THEATRE = {
-  stageFootY: 498,
-  // Recalibrated via the Stage Blocking Board tool (Hazem, 2026-09-09): was 520.
-  apronFootY: 502,
-  // The proscenium opening's own edges at floor level -- one step further in than the
-  // stage's full width, so he can't end up drawn over the gold arch or the curtain legs.
-  walkMinX: 480,
-  walkMaxX: 930,
-  // RUN 22 (2026-09-10): another -10% off the current value per Hazem, not off the
-  // original 0.806 baseline. 0.7254 * 0.9 = 0.65286 (19% below the original baseline).
-  playerScale: 0.65286,
-  // Recalibrated via the Stage Blocking Board tool (Hazem, 2026-09-09): was 500.
-  playerSpawnX: 507,
-  // Was 170. Matched to PARTY.castContentHeight (140) so a soprano is the same size in
-  // both levels she appears in -- at 170 she read a head taller than the same sheet does
-  // on the Party deck, and taller than she needs to against this stage.
-  sopranoContentHeight: 140,
-  // Stage-left entry mark, just inside the proscenium opening's left edge.
-  wingX: 470,
+  // The sopranos' foot line: the stage floor's front lip (plate row 595).
+  stageFootY: 455.7,
+  // The mic stand's foot (MIC_ANCHOR's frame point) on the plate: row 596.
+  micFootY: 456.5,
+  // Manos's ground line (plate row 593) and the ground collider's top edge. Name kept
+  // from the old apron strip, which the new plate does not have.
+  apronFootY: 454.2,
+  // Package E: the box is now built AROUND the measured stage-right spawn below (765.6)
+  // rather than the old stage-left one -- walkMaxX gives him a little room to either side
+  // of his own mark, walkMinX is unchanged (still short of the wing, staging, no plate
+  // reference for a play-area edge). The soprano pre-mic waiting marks (see
+  // buildTheatreActors()) were moved clear of this whole box in the same pass.
+  walkMinX: interimX(480),
+  walkMaxX: 790.7,
+  // Measured: Manos 143.2px tall on the plate / idle contentHeight 346.
+  playerScale: 0.414,
+  // Measured (BLOCKING_COORDINATES.md): the plate stands him stage-RIGHT of the trio.
+  // Was interimX(507) (stage-left of the mic, the wrong side) -- see enterLevel2()'s
+  // matching flipX(true), which now faces him at the cast on his left.
+  playerSpawnX: 765.6,
+  // Measured per soprano (the engine allows one height per actor). Green leans into the
+  // mic on the plate, so she takes gold's standing height.
+  sopranoContentHeights: { gold: 139.4, green: 139.4, red: 145.5 },
+  // The mic composite's content height in setActorVisual()'s fixed-anchor form: the
+  // measured scale 0.3181 x MIC_ANCHOR.refContentHeight (441).
+  micContentHeight: 140.3,
+  // INTERIM: stage-left entry mark (old 470), converted.
+  wingX: interimX(470),
   entranceSpeedPxPerSecond: 130,
-  // The shared mic stand's world x. Was 560 in the plan; MEASURED live in-browser and
-  // moved, because the composite grows AROUND this line rather than standing on it: at the
-  // 3-state its drawn content runs anchor-61 to anchor+72, so 560 put the leftmost singer
-  // at 499 -- on the player's own spawn mark (500), 19px inside the proscenium edge (480),
-  // with Manos standing through her and the whole trio crowded into the left curtain leg
-  // while two thirds of the stage sat empty. 700 is the centre of the visible stage floor
-  // (~465..940): it lands the trio at 639..772 under the background art's own centre
-  // spotlight beam, clears the spawn and both prosceniums, and gives gold a real walk to
-  // the mic instead of a 60px shuffle.
-  micX: 700,
+  // The shared mic stand's world x: the stand foot on the plate (plate x 710).
+  micX: 543.5,
 };
 // Fixed admission order for the shared mic, by actor id -- gold sings solo first, green
 // joins her, red last. Tracked by IDENTITY, never by roster index (the roster is ordered
@@ -292,11 +407,13 @@ function isTheatreSingingWindow(elapsed) {
     || (elapsed >= THEATRE_SINGING_PHASE2_START && elapsed < LEVEL3_ENTRANCE_SECONDS);
 }
 
-// Rest offsets relative to THEATRE.micX (700) when resting around the empty stand
+// Rest offsets relative to THEATRE.micX when resting around the empty stand: each
+// soprano's measured body centre inside the plate's trio (545.1 / 501.4 / 585.6) minus
+// the stand foot (543.5), so resting and singing put her in the same spot.
 const THEATRE_SOPRANO_REST_OFFSETS = {
-  soprano_gold: -10,
-  soprano_green: -55,
-  soprano_red: 45,
+  soprano_gold: 1.6,
+  soprano_green: -42.1,
+  soprano_red: 42.1,
 };
 
 // Level 2's sheets, grouped by the animation settings they share. Same reason
@@ -335,62 +452,66 @@ const LEVEL2_ANIM_GROUPS = {
       soprano_red_walkin: 'sopranoRedWalkInAnim',
     },
   },
-  // The GIF this sheet was converted from ran at 140ms per frame; frameRate is fps.
-  background: {
-    frameRate: 1000 / 140,
-    repeat: -1,
-    sheets: { level2_theatre_bg: 'theatreBgAnim' },
-  },
 };
 
-// Level 3 (The Party) geometry. Every number is a design-canvas pixel (1376x768) measured
-// off the real Party art itself -- the static base plate
-// (level3_party/lighting_effects/hanging_lights_no_heart/base_plate.png, 2730x1536) and the
-// animated level3_party_bg sheet (700x393/frame), both stretched to the canvas. The two
-// plates were checked against each other numerically (a luminance-edge scan down the stage
-// at x 380..440): BOTH put the deck's front-lip highlight on the same row, so the 2:40
-// static->animated swap moves no geometry and none of these numbers change with it.
-//
-// ONE floor Y, like FARA7 and unlike THEATRE's stage/apron pair: the party deck is a single
-// flat riverside platform (top surface ends at the lip, then a dark front face down to the
-// paved floor where the tables are). Nobody performs on the table floor, so the whole cast
-// -- hero included -- shares the deck's front lip.
+// Level 3 (The Party) geometry, measured off the new plate (blocking_coordinates.json,
+// plate-local 1280x720 == world) except the interimX/interimY values. The riverside deck:
+// top y 501.9 (back) .. 525.7 (front lip), x 339.1..888.0 at the lip, then a stone front
+// face down to the terrace with the tables. The plate stages the band upstage (feet 509.6),
+// the trio at 518.0 and Manos at 521.8.
 const PARTY = {
-  // The deck's front lip: the bright highlight row measured at y 566-567 on BOTH plates,
-  // with the dark front face starting at 568. Deck spans x ~262..1140 at this line.
-  stageFootY: 567,
-  // Play area between the two cast blocks (band 300..540 stage-left, sopranos 880..1040
-  // stage-right), so the hero is boxed centre-stage exactly as the locked composition
-  // stages him -- this is GAME_PLAN section 0's "confinement".
-  walkMinX: 610,
-  walkMaxX: 780,
-  // Centre of that box, and within a few px of where Manos actually stands in the locked
-  // populated reference (`environemt 3 , clean , no text.jpg`, x~680).
-  playerSpawnX: 700,
-  // Stage-RIGHT entry mark, same reasoning as FARA7.wingX: every walk-in sheet in this
-  // project draws its character walking LEFT, so an actor entering here travels left with
-  // the art unflipped.
-  wingX: 1330,
-  // Stage-LEFT entry mark, mirroring wingX exactly as FARA7.leftWingX does: the deck runs
-  // 262..1140 at the lip, the right wing sits 190px past its own edge (1330 - 1140), so
-  // 262 - 190 = 72. Actors entering here are setFlipX'd so the art walks rightward.
-  leftWingX: 72,
+  // Manos's ground line (plate row 682) and the ground collider's top edge. The boss
+  // walks up to him on the same line.
+  groundY: 521.8,
+  // Fallback only now -- every band member below carries its own measured footY.
+  stageFootY: interimY(567),
+  // The trio + mic stand line (plate row 677) -- sopranos and the stand foot.
+  micFootY: 518.0,
+  // Measured (BLOCKING_COORDINATES.md), per band member: footX/footY, the derived
+  // STANDING height and the plate's measured seated PERFORMANCE height. tabla is the
+  // task's required move to the measured stage-right percussion mark (was interimX(540),
+  // stage-left). drums has NO plate figure (the plate merges tabla/drums into one
+  // percussionist) -- owner decision keeps him as a 4th band member anyway, so his mark
+  // below is STAGED, not measured: placed stage-left with the rest of the melodic band,
+  // and his heights are derived only by applying the Fara7 drummer's own measured scale
+  // through the Fara7->Party player-height ratio (176.0/233.4 = 0.754) to keep him
+  // visually consistent in size with this level's other actors -- never a plate match.
+  band: {
+    accordion: { footX: 424.9, footY: 509.6, standingHeight: 166.1, performanceHeight: 126.2 },
+    keyboard: { footX: 505.3, footY: 509.6, standingHeight: 154.0, performanceHeight: 117.1 },
+    tabla: { footX: 803.8, footY: 509.6, standingHeight: 160.1, performanceHeight: 121.7 },
+    drums: { footX: 300, footY: 509.6, standingHeight: 145.8, performanceHeight: 118.9 },
+  },
+  // INTERIM: play area between the two cast blocks (old 610..780), converted.
+  walkMinX: interimX(610),
+  walkMaxX: interimX(780),
+  // Measured Manos mark (BLOCKING_COORDINATES.md); falls inside walkMinX..walkMaxX above.
+  playerSpawnX: 585.6,
+  // INTERIM (entrances): stage-RIGHT entry mark; every walk-in sheet draws its character
+  // walking LEFT, so an actor entering here travels left with the art unflipped.
+  wingX: interimX(1330),
+  // INTERIM: stage-LEFT entry mark; actors entering here are setFlipX'd.
+  leftWingX: interimX(72),
   // Faster than either earlier level (FARA7 220, THEATRE 130): SEVEN actors have to clear
   // a single shared wing between the 2:12 boot and the 2:40 boss, and they can only be
-  // staggered one behind another. At 300px/s the last soprano is on her mark by ~14s in.
+  // staggered one behind another.
   entranceSpeedPxPerSecond: 300,
-  // Provisional until Ticket E confirms it in a live browser: this keeps the re-used mic
-  // composite around the Party soprano block, on the same deck line as the cast.
-  micX: 960,
+  // The mic stand foot on the plate (plate x 929).
+  micX: 711.2,
   // Her own dial, deliberately slower than the cast's -- the entrance is the level's one
   // dramatic beat, not another walk-on.
   bossEntranceSpeedPxPerSecond: 200,
-  // Measured off the locked populated reference: Manos's silhouette there runs y~405 (hat)
-  // to the deck line, ~160px. The cast reads a touch smaller (they stand further upstage),
-  // and the boss matches the hero so she reads as his equal rather than as scenery.
-  playerContentHeight: 160,
-  castContentHeight: 140,
-  bossContentHeight: 160,
+  // Measured: Manos 176.0px tall on the plate (playerScale 0.5086).
+  playerContentHeight: 176.0,
+  // INTERIM (band scale held): old 140, converted.
+  castContentHeight: interimY(140),
+  // Measured per soprano; green leans in on the plate, so she takes gold's height.
+  sopranoContentHeights: { gold: 166.8, green: 166.8, red: 166.0 },
+  // The mic composite, fixed-anchor form: scale 0.3774 x 441.
+  micContentHeight: 166.4,
+  // Not measured (no plate figure): kept at "matches the hero", the rule this value has
+  // always followed, so she reads as his equal rather than as scenery.
+  bossContentHeight: 176.0,
 };
 // Background behind everything, cast behind the hero, and the boss between them when she
 // arrives downstage of the cast.
@@ -414,15 +535,6 @@ const LEVEL3_ANIM_GROUPS = {
     repeat: -1,
     sheets: { femme_fatale_entrance: 'femmeFataleEntranceAnim' },
   },
-  // The GIF this sheet was converted from ran at 110ms per frame; frameRate is fps.
-  background: {
-    frameRate: 1000 / 110,
-    repeat: -1,
-    sheets: {
-      level3_party_bg: 'partyBgAnim',
-      level3_party_bg_prelit: 'partyBgPrelitAnim',
-    },
-  },
 };
 
 // All three levels' grouped sheets in one flat list -- the loader in create() and the anims
@@ -433,15 +545,11 @@ const ALL_ANIM_GROUPS = [
   ...Object.values(LEVEL3_ANIM_GROUPS),
   // Once, not per level -- see the comment on the table itself.
   BAND_PERFORMANCE_ANIM_GROUP,
-  PLAYER_PERFORMANCE_ANIM_GROUP,
+  PLAYER_IDLE_ANIM_GROUP,
+  PLAYER_SINGING_ANIM_GROUP,
+  PLAYER_DEATH_ANIM_GROUP,
   ...Object.values(KEYBOARD_SOLO_ANIM_GROUPS),
 ];
-
-// Level 3's static (heart-marquee UNLIT) background. A plain image, not a registered
-// sprite-sheet key -- loaded by hand in create() the same way heart_icon/flowers_icon are.
-const LEVEL3_BASE_PLATE_KEY = 'level3_party_base';
-const LEVEL3_BASE_PLATE_FILE =
-  'assets/generated/environments/level3_party/lighting_effects/hanging_lights_no_heart/base_plate.png';
 
 // The two absolute song-clock beats GAME_PLAN section 0's timeline table locks for this
 // level: 2:12 is the Level 2 -> Level 3 transition, 2:40 the femme fatale's entrance. Both
@@ -503,7 +611,6 @@ class LevelScene extends Phaser.Scene {
     // load sprite sheets now that we know their real (measured) frame sizes
     const s = cfg.sprites;
     this.load.spritesheet('walk', s.walk.file, { frameWidth: s.walk.frameWidth, frameHeight: s.walk.frameHeight });
-    this.load.spritesheet('idle', s.idle.file, { frameWidth: s.idle.frameWidth, frameHeight: s.idle.frameHeight });
     this.load.spritesheet('jump', s.jump.file, { frameWidth: s.jump.frameWidth, frameHeight: s.jump.frameHeight });
     this.load.spritesheet('gesture_heart', s.gesture_heart.file, { frameWidth: s.gesture_heart.frameWidth, frameHeight: s.gesture_heart.frameHeight });
     this.load.spritesheet('gesture_flowers', s.gesture_flowers.file, { frameWidth: s.gesture_flowers.frameWidth, frameHeight: s.gesture_flowers.frameHeight });
@@ -541,12 +648,11 @@ class LevelScene extends Phaser.Scene {
       'level0_cassette_shop',
       'assets/generated/environments/level0_cassette_shop/level0_cassette_shop.jpg'
     );
-    // Level 3's pre-boss (heart-marquee unlit) plate. Deliberately a plain image rather
-    // than an assets.json sprite entry: it has no frames and no animation, and assets.json
-    // is outside this ticket's write set. The lit/animated counterpart IS a registered
-    // sheet (level3_party_bg, loaded by the ALL_ANIM_GROUPS pass above) and replaces this
-    // one at the 2:40 boss cue -- see swapToLitPartyBackground().
-    this.load.image(LEVEL3_BASE_PLATE_KEY, LEVEL3_BASE_PLATE_FILE);
+    // Each level's beat-locked background loop: one texture per frame, `<key>_<index>`.
+    // See showLevelBackground()/updateLevelBackground().
+    for (const key of LEVEL_BACKGROUND_KEYS) {
+      s[key].files.forEach((file, i) => this.load.image(`${key}_${i}`, file));
+    }
 
     // Lyric cues (small JSON, not media -- doesn't carry the iOS media-loader hang risk
     // audio does, safe to keep in the main gating queue). Missing/malformed file is a
@@ -566,14 +672,6 @@ class LevelScene extends Phaser.Scene {
 
   buildLevel() {
     const cfg = this.cfg;
-    // playerScale is the ONE value still read out of cfg.level1: it is a real, tuned
-    // number (0.806 as of RUN17's 1.3x bump -- was 0.62 originally) and nothing else in
-    // this file recomputes it. Every other key that block still carries -- panelsRightToLeft,
-    // kiosk.*, groundY, panelW/panelH, spawnX -- described the deleted scrolling street
-    // and is now dead data; assets.json is outside this ticket's write set, so it is left
-    // in place unread rather than edited out.
-    const { playerScale } = cfg.level1;
-
     // Fixed single-screen level: the world IS the canvas, in both axes and both levels.
     // Kept as fields because updateProjectiles() culls against them.
     this.worldMinX = 0;
@@ -581,7 +679,7 @@ class LevelScene extends Phaser.Scene {
 
     // Ground: one invisible static collider along the wedding deck's front lip.
     this.ground = this.add.rectangle(
-      STAGE_VIEW.width / 2, FARA7.stageFootY + 20, STAGE_VIEW.width, 40, 0x000000, 0
+      STAGE_VIEW.width / 2, FARA7.groundY + 20, STAGE_VIEW.width, 40, 0x000000, 0
     );
     this.physics.add.existing(this.ground, true);
 
@@ -590,12 +688,6 @@ class LevelScene extends Phaser.Scene {
       key: 'walkAnim',
       frames: this.anims.generateFrameNumbers('walk', { start: 0, end: cfg.sprites.walk.frames - 1 }),
       frameRate: 10,
-      repeat: -1,
-    });
-    this.anims.create({
-      key: 'idleAnim',
-      frames: this.anims.generateFrameNumbers('idle', { start: 0, end: cfg.sprites.idle.frames - 1 }),
-      frameRate: 4,
       repeat: -1,
     });
     this.anims.create({
@@ -699,24 +791,22 @@ class LevelScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // The animated wedding-stage plate. 1000x563 source frames stretched onto the
-    // 1376x768 canvas -- 1.376x in X against 1.364x in Y, a 0.9% aspect difference that
-    // is not visible on this art (verified in-browser against the straight vertical
-    // banner poles and the round lantern bodies, which stay round).
-    this.level1Bg = this.add.sprite(0, 0, 'level1_fara7_bg')
-      .setOrigin(0, 0)
-      .setDepth(FARA7_DEPTH.background);
-    this.level1Bg.anims.play('fara7BgAnim', true);
-    this.level1Bg.setDisplaySize(STAGE_VIEW.width, STAGE_VIEW.height);
+    // The wedding-stage loop, 1280x720 frames drawn 1:1 on the canvas.
+    this.levelBg = null;
+    this.showLevelBackground('level1_fara7_bg', FARA7_DEPTH.background);
+    // Fara7's foreground crowd is a composition layer in front of the hero. The common
+    // projectile-depth resolver lifts shots above it; levels without such a layer clear
+    // this value during their transition.
+    this.projectileForegroundDepth = FARA7_DEPTH.crowd;
 
     // Player spawns centre stage, under the heart marquee.
     // Spawn ABOVE the ground line (not on/inside it) so Arcade Physics resolves a real
     // fall-and-land collision -- spawning already overlapping the collider leaves the body
     // "embedded" and onFloor() never becomes true.
-    this.player = this.physics.add.sprite(FARA7.playerSpawnX, FARA7.stageFootY - 150, 'walk', 0);
+    this.player = this.physics.add.sprite(FARA7.playerSpawnX, FARA7.groundY - 150, 'walk', 0);
     this.player.setOrigin(0.5, 1);
-    this.baseScale = playerScale;
-    this.resizeBodyForTexture();
+    this.playerReferenceHeight = PLAYER_LEVEL_REFERENCE_HEIGHTS.fara7;
+    this.playPlayerVisual('idle', 'fara7');
     this.player.setCollideWorldBounds(true);
 
     this.physics.add.collider(this.player, this.ground);
@@ -814,7 +904,6 @@ class LevelScene extends Phaser.Scene {
     this.level3Active = false;
     this.level3Revealing = false;
     this.level3Requested = false;
-    this.partyBg = null;
     this.heartMarqueeTriggered = false; // 143s heart-cue one-shot trigger
     this.partyBgLit = false;            // guard preventing swapToLitPartyBackground double-fire
     // The femme fatale. Deliberately NOT a member of this.interactiveActors -- that is what
@@ -829,8 +918,19 @@ class LevelScene extends Phaser.Scene {
     this.theatreSingingActive = false;  // gated to [79, 88) and [96, 132)
     this.bossRequested = false;
     this.bossNoFlinchRequested = false;   // recorded for a future real no-flinch reaction
+    // Package G: one-shot latch so the kiss projectile is never spawned twice, plus the
+    // dizzy -> dizzy-singing hold state between "kiss lands" and "the actual collapse" (see
+    // handleBossKissImpact()). Gates the same movement/gesture branches manosDefeated does,
+    // but is set BEFORE manosDefeated so he can visibly react before he is actually defeated.
+    this.bossKissRequested = false;
+    this.bossSequenceActive = false;
+    this.bossKissDizzyTimer = null;
+    this.bossKissSingingTimer = null;
     // Set once her attack lands. Gates every movement/gesture branch in update().
     this.manosDefeated = false;
+    this.deathPending = false;
+    this.deathStarted = false;
+    this.deathCompleteHandler = null;
     // Scripted keyboard beats. Level 1 takes over the real roster keyboardist at 0:50;
     // Theatre creates its own non-interactive performer at 1:45. The phone latches stay
     // separate so neither performance duration can move its absolute song-clock call cue.
@@ -868,6 +968,7 @@ class LevelScene extends Phaser.Scene {
     // and multi-spawn on every subsequent gesture.
     this.projectiles = [];
     this.player.on('animationupdate', (anim, frame) => {
+      this.applyPlayerFrameAnchor(frame.textureFrame);
       if (!frame.isLast || this._projSpawned) return;
       if (anim.key === 'giveHeartAnim') { this._projSpawned = true; this.spawnProjectile('heart'); }
       else if (anim.key === 'giveFlowersAnim') { this._projSpawned = true; this.spawnProjectile('flowers'); }
@@ -883,6 +984,11 @@ class LevelScene extends Phaser.Scene {
       this.destroyPartyMic();
       this.destroyBoss();
       this.destroyPassiveAudience();
+      this.destroyProjectiles();
+      this.clearDeathCompletionHandler();
+      if (this.bossKissDizzyTimer) { this.bossKissDizzyTimer.remove(false); this.bossKissDizzyTimer = null; }
+      if (this.bossKissSingingTimer) { this.bossKissSingingTimer.remove(false); this.bossKissSingingTimer = null; }
+      this.bossSequenceActive = false;
       this.mSequenceActive = false;
       this.debugRapidFireAccumMs = 0;
       for (const el of [this.lyricEl, this.cinemaLyricEl]) {
@@ -944,41 +1050,115 @@ class LevelScene extends Phaser.Scene {
     }
   }
 
-  // Every generated sheet has its own canvas size (idle 336x376, jump 414x414, the walk
-  // sheet has swapped between 336x376 and 443x443 versions across regenerations, and gesture
-  // sheets also use different dimensions. A single fixed setScale() makes the character
-  // visibly grow/shrink every time the texture swaps to a differently-sized canvas -- the
-  // exact "why does he get smaller and bigger" bug already hit once. Fix at the root:
-  // rescale relative to a reference frame height (idle's, since that's what playerScale
-  // was originally tuned to look right at) so on-screen character size stays constant
-  // regardless of how much canvas padding a given generation happened to have. Then
-  // recompute the physics body from the CURRENT (unscaled) frame dimensions -- Arcade
-  // Physics anchors body size/offset to the texture frame's native pixel size, and
-  // skipping this after a texture swap drags the body's world position with it (the same
-  // bug already logged twice before for the jump texture).
-  //
-  // Two rules make this safe, both learned the hard way (see playbook, "idle/walk pulsing"):
-  //  1. Call it AFTER the anims.play() decision, never before -- anims.play() is what swaps
-  //     the texture, so reading p.frame.height at the top of update() reads the PREVIOUS
-  //     tick's frame and applies a stale scale.
-  //  2. Only touch the sprite when the texture key actually changed. Arcade's Body picks up
-  //     the GameObject's scale one physics step late, so re-running setScale/setSize every
-  //     tick leaves body height permanently one step behind -- the body's bottom edge then
-  //     wanders a few px around the ground line, onFloor() flickers, and the update() branch
-  //     below flips idle/walk <-> jump forever. That feedback loop is self-sustaining.
-  resizeBodyForTexture() {
+  getActiveLevelKey() {
+    if (this.level3Active) return 'party';
+    if (this.level2Active) return 'theatre';
+    return 'fara7';
+  }
+
+  getPlayerVisual(state, levelKey = this.getActiveLevelKey()) {
+    const entry = PLAYER_VISUALS[state];
+    if (!entry) throw new Error(`Unknown player visual state: ${state}`);
+    const visual = entry.textureKey ? entry : entry[levelKey];
+    if (!visual) throw new Error(`No player visual for state ${state} in level ${levelKey}`);
+    return visual;
+  }
+
+  getPlayerReferenceHeight(levelKey = this.getActiveLevelKey()) {
+    return PLAYER_LEVEL_REFERENCE_HEIGHTS[levelKey] || PLAYER_LEVEL_REFERENCE_HEIGHTS.fara7;
+  }
+
+  playPlayerVisual(state, levelKey = this.getActiveLevelKey()) {
+    const visual = this.getPlayerVisual(state, levelKey);
+    this.playerReferenceHeight = this.getPlayerReferenceHeight(levelKey);
+    this.player.anims.play(visual.animationKey, true);
+    // anims.play() installs frame zero immediately. Anchor and resize in the same call so
+    // an asynchronous animation callback or level reveal cannot render one stale-root frame.
+    this.resizeBodyForTexture();
+    return visual;
+  }
+
+  getPlayerFrameIndex(explicitFrame) {
+    const candidate = explicitFrame === undefined || explicitFrame === null
+      ? this.player.frame && this.player.frame.name
+      : explicitFrame;
+    const index = Number(candidate);
+    if (Number.isInteger(index) && index >= 0) return index;
+    const animationFrame = this.player.anims && this.player.anims.currentFrame;
+    return animationFrame ? Math.max(0, animationFrame.index - 1) : 0;
+  }
+
+  // Every player sheet is scaled by Package A's anatomical bodyReferenceHeight, not by
+  // its raw frame or full alpha union. The sprite origin is then moved to that frame's
+  // measured sole/contact line. Pairing the origin with an equal body-offset correction
+  // keeps both the visible feet and Arcade body's bottom at player.y across frame changes.
+  // Jump's fixedLaunchContact and death's poseGroupContact metadata deliberately preserve
+  // their authored vertical motion instead of bottom-aligning each silhouette.
+  applyPlayerFrameAnchor(explicitFrame) {
     const p = this.player;
-    if (p.texture.key === this.sizedForTexture) return;
-    this.sizedForTexture = p.texture.key;
-    // Scale off measured CONTENT height, not raw canvas frameHeight -- some sheets
-    // can have a lot of transparent padding below the character, so scaling
-    // to match idle's raw canvas under-sizes the actual silhouette. contentHeight is
-    // the real alpha-bbox height, measured per-sheet by prep_assets.ps1.
-    const REF_CONTENT_HEIGHT = this.cfg.sprites.idle.contentHeight;
-    const curContentHeight = this.cfg.sprites[p.texture.key].contentHeight;
-    p.setScale(this.baseScale * (REF_CONTENT_HEIGHT / curContentHeight));
-    p.body.setSize(p.width * 0.5, p.height * 0.9);
-    p.body.setOffset(p.width * 0.25, p.height * 0.1);
+    if (!p || !p.body || !p.texture) return;
+    const textureKey = p.texture.key;
+    const spriteCfg = this.cfg.sprites[textureKey];
+    const visualCfg = this.cfg.playerVisuals && this.cfg.playerVisuals.visuals[textureKey];
+    if (!spriteCfg || !visualCfg || !Array.isArray(visualCfg.frameRootY)) return;
+
+    const frameIndex = this.getPlayerFrameIndex(explicitFrame);
+    const rootY = visualCfg.frameRootY[Math.min(frameIndex, visualCfg.frameRootY.length - 1)];
+    const rootXNormalized = this.cfg.playerVisuals.rootXNormalized;
+    const anchorKey = `${textureKey}:${frameIndex}`;
+    const textureChanged = textureKey !== this.sizedForTexture;
+    if (!textureChanged && anchorKey === this.anchoredPlayerFrame) return;
+    const bodyWidthSource = visualCfg.bodyReferenceHeight * 0.5;
+
+    if (textureChanged) {
+      if (!Number.isFinite(this.playerReferenceHeight)) {
+        this.playerReferenceHeight = this.getPlayerReferenceHeight();
+      }
+      const scale = this.playerReferenceHeight / visualCfg.bodyReferenceHeight;
+      p.setScale(scale);
+      p.body.setSize(bodyWidthSource, visualCfg.bodyReferenceHeight);
+    }
+
+    p.setOrigin(rootXNormalized, rootY / spriteCfg.frameHeight);
+    p.body.setOffset(
+      spriteCfg.frameWidth * rootXNormalized - bodyWidthSource / 2,
+      rootY - visualCfg.bodyReferenceHeight
+    );
+
+    // A texture swap changes native dimensions and scale. Synchronize once here while
+    // preserving the root world coordinate and velocity; never reset on ordinary frames,
+    // which would clear onFloor() and recreate the historic idle/jump flicker.
+    if (textureChanged) p.body.updateFromGameObject();
+    this.sizedForTexture = textureKey;
+    this.anchoredPlayerFrame = anchorKey;
+  }
+
+  resizeBodyForTexture() {
+    this.applyPlayerFrameAnchor();
+  }
+
+  // Installs a level's background loop, replacing whichever level's loop was up (one
+  // background object for the whole run, like the one ground collider).
+  showLevelBackground(key, depth) {
+    if (this.levelBg) this.levelBg.destroy();
+    this.levelBgKey = key;
+    this.levelBgFrame = 0;
+    this.levelBg = this.add.image(0, 0, `${key}_0`).setOrigin(0, 0).setDepth(depth);
+  }
+
+  // Beat-locked, not a free-running animation: the frame is derived from the song clock
+  // every tick, so it cannot drift from the track. getLevelElapsed() IS the audio's own
+  // playback position (music.seek) while it plays; it is 0 until the first real gesture
+  // (the moment the music starts), so frame 0 holds until then. If audio is slow or never
+  // loads, it falls back to the same wall-clock timeline the music joins (setupMusic()
+  // seeks to it), so the loop keeps its phase either way.
+  updateLevelBackground(elapsed) {
+    if (!this.levelBg) return;
+    const count = this.cfg.sprites[this.levelBgKey].files.length;
+    const frame = Math.floor(Math.max(0, elapsed) * 1000 / (BAR_MS / count)) % count;
+    if (frame === this.levelBgFrame) return;
+    this.levelBgFrame = frame;
+    this.levelBg.setTexture(`${this.levelBgKey}_${frame}`);
   }
 
   // Called once the separate, non-blocking audio load pass (see create()/buildLevel())
@@ -1131,11 +1311,14 @@ class LevelScene extends Phaser.Scene {
     //    must start first, for exactly the same reason.
     // At a shared speed a walker that started earlier is always further along, so ordering
     // each wing's starts furthest-mark-first is what makes the staggered starts safe.
-    const bandMember = (id, targetX, visuals, earliestStartMs, side) => ({
+    // `mark` is one of FARA7.band's four measured entries -- footX/footY, the STANDING
+    // height (idle/walk-in/dizzy) and the seated PERFORMANCE height (the playing loop,
+    // via visuals.performance/bandPerformanceVisual()'s own displayContentHeight override).
+    const bandMember = (id, mark, visuals, earliestStartMs, side) => ({
       id,
-      targetX,
-      footY: FARA7.stageFootY,
-      displayContentHeight: ACTOR_DISPLAY_CONTENT_HEIGHT,
+      targetX: mark.footX,
+      footY: mark.footY,
+      displayContentHeight: mark.standingHeight,
       depth: FARA7_DEPTH.band,
       idle: visuals.idle,
       walkIn: visuals.walkIn,
@@ -1146,9 +1329,11 @@ class LevelScene extends Phaser.Scene {
       performance: visuals.performance || null,
       hitsRequired: 3,
       entrance: {
+        // Both waypoints share the actor's own measured foot line so arrival never snaps
+        // vertically onto a different shared line.
         path: [
-          { x: side === 'left' ? FARA7.leftWingX : FARA7.wingX, y: FARA7.stageFootY },
-          { x: targetX, y: FARA7.stageFootY },
+          { x: side === 'left' ? FARA7.leftWingX : FARA7.wingX, y: mark.footY },
+          { x: mark.footX, y: mark.footY },
         ],
         speedPxPerSecond: FARA7.entranceSpeedPxPerSecond,
         earliestStartMs,
@@ -1158,48 +1343,46 @@ class LevelScene extends Phaser.Scene {
       },
       clipBottomY: null,
     });
-    // The three sheets the old street build already used, plus the playing loop.
-    const musician = (sheet, anim) => ({
+    // The three sheets the old street build already used, plus the playing loop -- which
+    // gets its own measured seated-performance height (mark.performanceHeight) rather than
+    // the actor's standing default.
+    const musician = (sheet, anim, mark) => ({
       idle: { textureKey: `musician_${sheet}_idle`, animationKey: `musician${anim}IdleAnim` },
       walkIn: { textureKey: `musician_${sheet}_walkin`, animationKey: ACTOR_WALK_IN_ANIMS[`musician_${sheet}_walkin`] },
       dizzy: { textureKey: `musician_${sheet}_love`, animationKey: `musician${anim}LoveAnim` },
-      performance: bandPerformanceVisual(`musician_${sheet}_playing`),
+      performance: bandPerformanceVisual(`musician_${sheet}_playing`, mark.performanceHeight),
     });
 
     // Starts are spread across ~20s rather than bunched at boot, per GAME_PLAN section 0
-    // ("hit windows spread evenly across the level's actual running time"): the last man
-    // reaches his mark around 0:21, leaving half the level to land the remaining hits
-    // before the 0:50 solo / 0:53 exit. The level still opens with only Manos on stage --
-    // buildInteractiveActors() parks every entrance actor hidden on its wing mark.
+    // ("hit windows spread evenly across the level's actual running time"). The level still
+    // opens with only Manos on stage -- buildInteractiveActors() parks every entrance actor
+    // hidden on its wing mark.
     //
-    // Marks recalibrated (RUN 21, Hazem, 2026-09-10) to match the original reference photo's
-    // grouping (`02_Assets/New Environments/Level 1 - fara7/Fara7 - Lights - People.jpg`):
-    // accordion + keyboard together on the LEFT, tabla + drums together on the RIGHT,
-    // flanking Manos/the wedding couple in the middle. Both left marks (344/498) sit below
-    // FARA7.walkMinX(610); both right marks (980/1100) sit above walkMaxX(950) -- this also
-    // fixes a pre-existing issue where the old tabla mark (923) sat INSIDE that box.
-    // Entrance ordering re-derived per wing under the same furthest-from-wing-goes-first
-    // invariant: left entry x=30 -- keyboard travels 468px vs. accordion's 314px, so
-    // keyboard starts first and parks farther inward; right entry x=1330 -- tabla travels
-    // 350px vs. drums' 230px, so tabla starts first. Same start-time SET as before
-    // (1500/7000/13500/20000, same ~18.5s spread), just reassigned to the new grouping.
-    // Known tradeoff, not yet live-verified: the tabla/drums PLAYING poses have measured
-    // ~31px of horizontal silhouette overlap and drums overhangs the deck edge by ~17px --
-    // acceptable to keep current character scale, but flagged for a visual check once this
-    // is actually on screen; revisit spacing/scale if it reads as merged bodies.
+    // Marks are now the measured plate positions (BLOCKING_COORDINATES.md), replacing the
+    // RUN 21 provisional numbers: accordion + keyboard on the LEFT (187.6/306.2), tabla +
+    // drums on the RIGHT (956.9/1102.4), flanking Manos/the wedding couple in the middle --
+    // same grouping as before, exact marks now measured. Both left marks sit below
+    // FARA7.walkMinX(567.4); both right marks sit above walkMaxX(883.7), so the player's
+    // play area still stays clear of the band. Entrance ordering keeps the same
+    // furthest-from-wing-starts-first invariant and the same start-time SET
+    // (1500/7000/13500/20000): keyboard(306.2) is further from the left wing than
+    // accordion(187.6), so it still starts first; tabla(956.9) is further from the right
+    // wing than drums(1102.4), so it still starts first. Owner decision: accordion and
+    // drums sit exactly on these marks even though the accordionist's chair leg lands at
+    // the deck edge and the drums sit on carpet that only exists in the populated plate.
     this.buildInteractiveActors([
-      bandMember('keyboard', 498, musician('keyboard', 'Keyboard'), 1500, 'left'),
-      bandMember('accordion', 344, musician('accordion', 'Accordion'), 7000, 'left'),
+      bandMember('keyboard', FARA7.band.keyboard, musician('keyboard', 'Keyboard', FARA7.band.keyboard), 1500, 'left'),
+      bandMember('accordion', FARA7.band.accordion, musician('accordion', 'Accordion', FARA7.band.accordion), 7000, 'left'),
       // The tabla player -- a genuinely new fourth band member (GAME_PLAN section 0), and
       // the one the old street roster was missing entirely. His sheets do not follow the
       // musician_* naming, hence the literal keys, including his playing loop.
-      bandMember('tabla', 980, {
+      bandMember('tabla', FARA7.band.tabla, {
         idle: { textureKey: 'tabla_player_standing_idle', animationKey: loops.tabla_player_standing_idle },
         walkIn: { textureKey: 'tabla_player_walkin', animationKey: ACTOR_WALK_IN_ANIMS.tabla_player_walkin },
         dizzy: { textureKey: 'tabla_player_dizzy_love', animationKey: loops.tabla_player_dizzy_love },
-        performance: bandPerformanceVisual('tabla_player_playing'),
+        performance: bandPerformanceVisual('tabla_player_playing', FARA7.band.tabla.performanceHeight),
       }, 13500, 'right'),
-      bandMember('drums', 1100, musician('drums', 'Drums'), 20000, 'right'),
+      bandMember('drums', FARA7.band.drums, musician('drums', 'Drums', FARA7.band.drums), 20000, 'right'),
     ]);
   }
 
@@ -1216,7 +1399,7 @@ class LevelScene extends Phaser.Scene {
   // width-capped in practice, not height-capped. `top` is the measured world-Y where each
   // group's real background placement was checked against the actual stage art; the
   // resulting foot/anchor Y (top + this group's own scaled height) intentionally runs
-  // past the bottom of the 768-tall canvas for all 4 -- the camera's own edge crops their
+  // past the bottom of the canvas for all 4 -- the camera's own edge crops their
   // lower bodies, matching the reference photo's own foreground-crowd framing, no
   // clipBottomY needed for this (contrast with the old pre-RUN-20 audience, which DID use
   // clipBottomY to crop at a background seat-line -- there's no such line here).
@@ -1224,16 +1407,18 @@ class LevelScene extends Phaser.Scene {
   // groups don't clap in lockstep.
   buildFara7Crowd() {
     const sheets = LEVEL1_ANIM_GROUPS.crowd.sheets;
+    // INTERIM (crowd layout held): centre/top and the 180x336 size caps are the RUN 21
+    // numbers converted.
     const placements = [
       // [textureKey, centreX, topY, nativeContentWidth, nativeContentHeight, startFrame]
-      ['fara7_crowd_group_a', 172, 636, 644, 304, 0],
-      ['fara7_crowd_group_b', 516, 642, 672, 314, 1],
-      ['fara7_crowd_group_c', 860, 638, 675, 318, 2],
-      ['fara7_crowd_group_d', 1204, 644, 647, 300, 3],
+      ['fara7_crowd_group_a', interimX(172), interimY(636), 644, 304, 0],
+      ['fara7_crowd_group_b', interimX(516), interimY(642), 672, 314, 1],
+      ['fara7_crowd_group_c', interimX(860), interimY(638), 675, 318, 2],
+      ['fara7_crowd_group_d', interimX(1204), interimY(644), 647, 300, 3],
     ];
     for (const [textureKey, x, topY, nativeW, nativeH, startFrame] of placements) {
       if (!this.cfg.sprites[textureKey]) continue;
-      const scale = Math.min(180 / nativeH, 336 / nativeW);
+      const scale = Math.min(interimY(180) / nativeH, interimX(336) / nativeW);
       const displayContentHeight = nativeH * scale;
       const sprite = this.add.sprite(x, topY + displayContentHeight, textureKey, 0)
         .setDepth(FARA7_DEPTH.crowd);
@@ -1259,19 +1444,15 @@ class LevelScene extends Phaser.Scene {
     // RUN 22: replaced the two separate bride/groom sprites with one combined sprite --
     // both seated together on an actual heart-shaped "kosha" chair, matching the reference
     // photo's real prop (the two-sprite version below was a positioning-only stand-in from
-    // RUN 21, since the shipped background has no heart-chair prop of its own). Centre-x is
-    // the midpoint of the two old marks (795 + 880) / 2 = 837.5, so the couple lands in the
-    // same place they already read correctly beside Manos. Caps 230x185 per the accepted
-    // raw art's measured content box (546x477 native, content-height-bound at this cap).
+    // RUN 21, since the shipped background has no heart-chair prop of its own). Placement
+    // and height are measured off the new plate (FARA7.couple).
     const coupleKey = 'fara7_couple_heart_chair_idle';
     if (this.cfg.sprites[coupleKey] && dressingSheets[coupleKey]) {
-      const meta = this.cfg.sprites[coupleKey];
-      const scale = Math.min(185 / meta.contentHeight, 230 / meta.contentWidth);
-      const displayContentHeight = meta.contentHeight * scale;
-      const sprite = this.add.sprite(837.5, FARA7.stageFootY, coupleKey, 0)
+      const { x, footY, contentHeight } = FARA7.couple;
+      const sprite = this.add.sprite(x, footY, coupleKey, 0)
         .setDepth(FARA7_DEPTH.dressing);
       this.setActorVisual(
-        { sprite, spec: { displayContentHeight, clipBottomY: null } },
+        { sprite, spec: { displayContentHeight: contentHeight, clipBottomY: null } },
         { textureKey: coupleKey, animationKey: dressingSheets[coupleKey] }
       );
       sprite.anims.setProgress(0.5);
@@ -1279,14 +1460,14 @@ class LevelScene extends Phaser.Scene {
       return;
     }
     // Fallback: the two separate sprites, kept working if the combined asset is ever
-    // missing/unregistered.
+    // missing/unregistered. INTERIM: old marks/heights converted, on the couple's line.
     const placements = [
-      ['wife_bride_seated_idle', 795, 165],
-      ['husband_groom_seated_idle', 880, 150],
+      ['wife_bride_seated_idle', interimX(795), interimY(165)],
+      ['husband_groom_seated_idle', interimX(880), interimY(150)],
     ];
     for (const [textureKey, x, contentHeight] of placements) {
       if (!this.cfg.sprites[textureKey]) continue;
-      const sprite = this.add.sprite(x, FARA7.stageFootY, textureKey, 0).setDepth(FARA7_DEPTH.dressing);
+      const sprite = this.add.sprite(x, FARA7.couple.footY, textureKey, 0).setDepth(FARA7_DEPTH.dressing);
       this.setActorVisual(
         { sprite, spec: { displayContentHeight: contentHeight, clipBottomY: null } },
         { textureKey, animationKey: sheets[textureKey] }
@@ -1310,7 +1491,7 @@ class LevelScene extends Phaser.Scene {
         id: `soprano_${colour}`,
         targetX,
         footY: THEATRE.stageFootY,
-        displayContentHeight: THEATRE.sopranoContentHeight,
+        displayContentHeight: THEATRE.sopranoContentHeights[colour],
         depth: THEATRE_DEPTH.soprano,
         idle: { textureKey: `soprano_${colour}_idle`, animationKey: loops[`soprano_${colour}_idle`] },
         walkIn: walkIns[walkInKey] ? { textureKey: walkInKey, animationKey: walkIns[walkInKey] } : null,
@@ -1335,12 +1516,18 @@ class LevelScene extends Phaser.Scene {
 
     // Both walkers enter from the same stage-left wing mark, so the one with the FURTHER
     // mark has to leave first or the second would be walked through on its way past.
-    // Green clears gold's mark (620) at (620-470)/130 = 1.15s; gold's 1600ms start is
-    // safely after that.
+    // Green clears gold's mark at (500-437.2)/130 = 0.48s; gold's 1600ms start is safely
+    // after that.
+    // STAGING, not measured: the plate only shows the trio AT the mic (THEATRE_SOPRANO_
+    // REST_OFFSETS, below, is the measured part), so these pre-mic waiting marks have no
+    // plate reference. Package E moved them (were interimX(780)/620/895) clear of the
+    // player's new stage-RIGHT box (THEATRE.playerSpawnX 765.6, walkMaxX 790.7) -- the old
+    // marks (725.6/576.9/832.6 converted) put green and red within ~40-65px of Manos's new
+    // mark, close enough to visibly overlap his and each other's silhouettes.
     this.buildInteractiveActors([
-      soprano('green', 780, 0),
-      soprano('gold', 620, 1600),
-      soprano('red', 895, null),
+      soprano('green', 610, 0),
+      soprano('gold', 500, 1600),
+      soprano('red', 680, null),
     ]);
     this.buildTheatreMic();
   }
@@ -1389,9 +1576,9 @@ class LevelScene extends Phaser.Scene {
   buildTheatreMic() {
     this.buildMic('theatreMic', {
       x: THEATRE.micX,
-      floorY: THEATRE.stageFootY,
+      floorY: THEATRE.micFootY,
       speedPxPerSecond: THEATRE.entranceSpeedPxPerSecond,
-      contentHeight: THEATRE.sopranoContentHeight,
+      contentHeight: THEATRE.micContentHeight,
       depth: THEATRE_DEPTH.soprano,
     });
   }
@@ -1403,9 +1590,9 @@ class LevelScene extends Phaser.Scene {
   buildPartyMic() {
     this.buildMic('partyMic', {
       x: PARTY.micX,
-      floorY: PARTY.stageFootY,
+      floorY: PARTY.micFootY,
       speedPxPerSecond: PARTY.entranceSpeedPxPerSecond,
-      contentHeight: PARTY.castContentHeight,
+      contentHeight: PARTY.micContentHeight,
       depth: PARTY_DEPTH.cast,
     });
   }
@@ -1426,11 +1613,13 @@ class LevelScene extends Phaser.Scene {
     const walkIns = LEVEL2_ANIM_GROUPS.walkIns.sheets;
     // `side` defaults to the right wing, which is what every soprano keeps -- only the band
     // uses the left one (same character-side split as Level 1).
+    // visuals.footY/contentHeight override the band's line and height -- the sopranos stand
+    // on their own measured line (PARTY.micFootY) at their own measured heights.
     const partyActor = (id, targetX, visuals, earliestStartMs, side = 'right') => ({
       id,
       targetX,
-      footY: PARTY.stageFootY,
-      displayContentHeight: PARTY.castContentHeight,
+      footY: visuals.footY || PARTY.stageFootY,
+      displayContentHeight: visuals.contentHeight || PARTY.castContentHeight,
       depth: PARTY_DEPTH.cast,
       idle: visuals.idle,
       walkIn: visuals.walkIn,
@@ -1441,8 +1630,8 @@ class LevelScene extends Phaser.Scene {
       hitsRequired: 3,
       entrance: earliestStartMs === null ? null : {
         path: [
-          { x: side === 'left' ? PARTY.leftWingX : PARTY.wingX, y: PARTY.stageFootY },
-          { x: targetX, y: PARTY.stageFootY },
+          { x: side === 'left' ? PARTY.leftWingX : PARTY.wingX, y: visuals.footY || PARTY.stageFootY },
+          { x: targetX, y: visuals.footY || PARTY.stageFootY },
         ],
         speedPxPerSecond: PARTY.entranceSpeedPxPerSecond,
         earliestStartMs,
@@ -1450,11 +1639,15 @@ class LevelScene extends Phaser.Scene {
       },
       clipBottomY: null,
     });
-    const musician = (sheet, anim) => ({
+    // `mark` is one of PARTY.band's four entries -- footX/footY, the standing height and
+    // the seated performance height (see FARA7's identical pattern in buildFara7Actors()).
+    const musician = (sheet, anim, mark) => ({
       idle: { textureKey: `musician_${sheet}_idle`, animationKey: `musician${anim}IdleAnim` },
       walkIn: { textureKey: `musician_${sheet}_walkin`, animationKey: ACTOR_WALK_IN_ANIMS[`musician_${sheet}_walkin`] },
       dizzy: { textureKey: `musician_${sheet}_love`, animationKey: `musician${anim}LoveAnim` },
-      performance: bandPerformanceVisual(`musician_${sheet}_playing`),
+      performance: bandPerformanceVisual(`musician_${sheet}_playing`, mark.performanceHeight),
+      footY: mark.footY,
+      contentHeight: mark.standingHeight,
     });
     const soprano = (colour) => {
       const walkInKey = `soprano_${colour}_walkin`;
@@ -1463,36 +1656,47 @@ class LevelScene extends Phaser.Scene {
         walkIn: walkIns[walkInKey] ? { textureKey: walkInKey, animationKey: walkIns[walkInKey] } : null,
         dizzy: { textureKey: `soprano_${colour}_dizzy`, animationKey: l2[`soprano_${colour}_dizzy`] },
         performance: { kind: 'mic', textureKey: 'theatre_mic_empty', micInstance: 'partyMic' },
+        footY: PARTY.micFootY,
+        contentHeight: PARTY.sopranoContentHeights[colour],
       };
     };
 
-    // Marks: the band stage-LEFT (300..540), the sopranos stage-RIGHT (880..1040), the hero's
-    // own box (PARTY.walkMinX..walkMaxX) between them -- the locked composition's staging.
+    // Marks: accordion/keyboard/drums stage-LEFT, tabla now stage-RIGHT (measured, the
+    // task's required move -- the plate's percussionist sits past the trio, not with the
+    // rest of the band), the sopranos stage-RIGHT beyond him, the hero's own box
+    // (PARTY.walkMinX..walkMaxX) in between -- the locked composition's staging.
     //
-    // The BAND now enters from the left wing (PARTY.leftWingX, travelling right, art
-    // flipped); the sopranos keep the right wing they already used. Same furthest-mark-
-    // first invariant per wing, mirrored: on the LEFT that is the LARGEST target x
-    // (accordion 380 before drums 300 -- accordion parks by ~1.8s and drums stops short at
-    // 300, so it never reaches it); on the RIGHT it is the smallest (keyboard 460 before
-    // tabla 540, then the sopranos further right still). Every earliestStartMs below is
-    // UNCHANGED from the single-wing build -- only which mark each start belongs to moved,
-    // so the right wing's spacing maths (tabla clears x=880 at 11.4s, green starts 11.6s)
-    // holds exactly as before. The last soprano lands ~14.2s after boot, leaving ~14s of
-    // hit window before the 2:40 boss cue.
+    // The BAND (accordion/drums/keyboard) enters from the left wing (PARTY.leftWingX,
+    // travelling right, art flipped); tabla and the sopranos share the right wing. Same
+    // furthest-mark-first invariant per wing, mirrored: on the LEFT that is the LARGEST
+    // target x (accordion 424.9 before drums 300); on the RIGHT it is the smallest
+    // (keyboard 505.3 before tabla 803.8, then the sopranos further right still, smallest-
+    // first among themselves too: green 900 before gold 960 before red 1020). tabla's new
+    // measured mark is now much CLOSER to its wing than the old provisional one was, so it
+    // clears the wing and parks well before any soprano starts (tabla starts 9900ms,
+    // travels (1236.9-803.8)/300 = 1.44s, arrives ~11.3s -- green doesn't start until
+    // 11.6s). Every earliestStartMs below is unchanged from the prior build.
     //
+    // Soprano pre-mic waiting marks (900/960/1020) are STAGED, not measured -- same
+    // reasoning as Theatre's (no plate reference for a pre-mic mark) -- and were moved
+    // right of tabla's new measured mark (was interimX(880)/960/1040, which put green only
+    // ~15px from tabla's new 803.8) so the two casts' resting silhouettes stay clear of
+    // each other.
     this.buildInteractiveActors([
-      partyActor('accordion', 380, musician('accordion', 'Accordion'), 800, 'left'),
-      partyActor('drums', 300, musician('drums', 'Drums'), 4100, 'left'),
-      partyActor('keyboard', 460, musician('keyboard', 'Keyboard'), 7100, 'right'),
-      partyActor('tabla', 540, {
+      partyActor('accordion', PARTY.band.accordion.footX, musician('accordion', 'Accordion', PARTY.band.accordion), 800, 'left'),
+      partyActor('drums', PARTY.band.drums.footX, musician('drums', 'Drums', PARTY.band.drums), 4100, 'left'),
+      partyActor('keyboard', PARTY.band.keyboard.footX, musician('keyboard', 'Keyboard', PARTY.band.keyboard), 7100, 'right'),
+      partyActor('tabla', PARTY.band.tabla.footX, {
         idle: { textureKey: 'tabla_player_standing_idle', animationKey: l1.tabla_player_standing_idle },
         walkIn: { textureKey: 'tabla_player_walkin', animationKey: ACTOR_WALK_IN_ANIMS.tabla_player_walkin },
         dizzy: { textureKey: 'tabla_player_dizzy_love', animationKey: l1.tabla_player_dizzy_love },
-        performance: bandPerformanceVisual('tabla_player_playing'),
+        performance: bandPerformanceVisual('tabla_player_playing', PARTY.band.tabla.performanceHeight),
+        footY: PARTY.band.tabla.footY,
+        contentHeight: PARTY.band.tabla.standingHeight,
       }, 9900, 'right'),
-      partyActor('soprano_green', 880, soprano('green'), 11600),
+      partyActor('soprano_green', 900, soprano('green'), 11600),
       partyActor('soprano_gold', 960, soprano('gold'), 13000),
-      partyActor('soprano_red', 1040, soprano('red'), 14400),
+      partyActor('soprano_red', 1020, soprano('red'), 14400),
     ]);
     this.buildPartyMic();
   }
@@ -1598,8 +1802,16 @@ class LevelScene extends Phaser.Scene {
     // would slide and resize on every swap. A fixed anchor pins one frame-space point and
     // one scale reference instead, so the swap moves nothing.
     const fixed = actor.spec.fixedAnchor || null;
-    const scale = actor.spec.displayContentHeight
-      / (fixed ? fixed.refContentHeight : meta.contentHeight);
+    // Package E: a visual may carry its OWN displayContentHeight (the seated/performance
+    // sheets do, via bandPerformanceVisual()) so one actor's walk-in/idle/dizzy states can
+    // use its derived STANDING height while its playing loop uses the plate's measured
+    // SEATED height -- the two differ by ~1.3x and one number cannot serve both. Anything
+    // that doesn't set its own (every non-performance visual) falls back to the actor
+    // spec's standing default, unchanged from before this override existed.
+    const displayContentHeight = visual.displayContentHeight !== undefined
+      ? visual.displayContentHeight
+      : actor.spec.displayContentHeight;
+    const scale = displayContentHeight / (fixed ? fixed.refContentHeight : meta.contentHeight);
     // The world anchor IS the sprite's own x/y by construction (the origin below sits on
     // the content's bottom-centre, or on the fixed frame point), so re-reading it preserves
     // position across a texture swap -- including mid-walk-in, where it is deliberately NOT
@@ -1847,26 +2059,119 @@ class LevelScene extends Phaser.Scene {
     return { left, top, width, height };
   }
 
-  // Extracted from updateProjectiles() so the collision search has one owner. Returns
-  // whether a hit was ACCEPTED -- the caller consumes the projectile on true, including
-  // for a below-threshold hit that leaves the actor standing.
-  tryHitInteractiveActor(projectileBounds) {
-    // The boss is checked FIRST and outside the loop below, because she is not in
-    // this.interactiveActors at all. She absorbs the projectile (it is consumed exactly as
-    // a normal hit would consume it) and nothing else happens -- no flinch, no hit count,
-    // no dizzy. This is the only place a projectile can reach her, and it is the single
-    // owner of every projectile collision in the game, so no sibling caller can bypass it.
-    if (this.tryHitBoss(projectileBounds)) return true;
-    for (const actor of this.interactiveActors) {
-      if (!this.canHitActor(actor)) continue;
-      const rect = this.getActorHitRect(actor);
-      if (rect.width > 0 && rect.height > 0
-        && projectileBounds.right > rect.left
-        && projectileBounds.left < rect.left + rect.width
-        && projectileBounds.bottom > rect.top
-        && projectileBounds.top < rect.top + rect.height) {
-        return this.strikeActor(actor);
+  getProjectileTargetRect(target) {
+    if (!target || !target.entity) return null;
+    if (target.kind === 'actor' || target.kind === 'boss') {
+      return this.getActorHitRect(target.entity);
+    }
+    if (target.kind === 'player') {
+      const bounds = target.entity.getBounds();
+      return { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height };
+    }
+    return null;
+  }
+
+  isProjectileTargetEligible(projectile, target) {
+    if (!target || !target.entity || target.entity === projectile.emitter) return false;
+    if (target.kind === 'actor') {
+      return projectile.team === 'player'
+        && this.interactiveActors.includes(target.entity)
+        && this.canHitActor(target.entity);
+    }
+    if (target.kind === 'boss') {
+      return projectile.team === 'player' && this.boss === target.entity;
+    }
+    if (target.kind === 'player') {
+      return projectile.team === 'hostile' && target.entity === this.player
+        && !!this.player.active && !this.manosDefeated;
+    }
+    return false;
+  }
+
+  getProjectileTargetPoint(projectile, target = projectile.target) {
+    if (!this.isProjectileTargetEligible(projectile, target)) return null;
+    const rect = this.getProjectileTargetRect(target);
+    if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+    // The rectangle centre is deliberately interior, avoiding a grazing shot whose icon
+    // only kisses a boundary. Target acquisition guides visible travel; this point never
+    // awards a hit -- the swept collision owner below remains authoritative.
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
+
+  getProjectileCollisionCandidates(projectile) {
+    const candidates = [];
+    if (projectile.team === 'player') {
+      for (const actor of this.interactiveActors) {
+        const target = { kind: 'actor', entity: actor };
+        if (this.isProjectileTargetEligible(projectile, target)) candidates.push(target);
       }
+      if (this.boss) {
+        const target = { kind: 'boss', entity: this.boss };
+        if (this.isProjectileTargetEligible(projectile, target)) candidates.push(target);
+      }
+    } else if (projectile.team === 'hostile') {
+      // Package G can use this seam by spawning a hostile projectile with the boss as its
+      // emitter and an onImpact callback. Package F does not make the boss fire it.
+      const target = { kind: 'player', entity: this.player };
+      if (this.isProjectileTargetEligible(projectile, target)) candidates.push(target);
+    }
+    return candidates;
+  }
+
+  getSweptProjectileContactTime(projectile, rect) {
+    // Sweep the projectile's extent by expanding the target AABB, then intersect the
+    // logical projectile centre's actual per-frame segment against that expanded box.
+    const left = rect.left - projectile.halfWidth;
+    const right = rect.left + rect.width + projectile.halfWidth;
+    const top = rect.top - projectile.halfHeight;
+    const bottom = rect.top + rect.height + projectile.halfHeight;
+    const x0 = projectile.previousX;
+    const y0 = projectile.previousY;
+    const dx = projectile.sprite.x - x0;
+    const dy = projectile.sprite.y - y0;
+    let enter = 0;
+    let exit = 1;
+
+    const clipAxis = (origin, distance, min, max) => {
+      if (Math.abs(distance) < 0.000001) return origin >= min && origin <= max;
+      let t0 = (min - origin) / distance;
+      let t1 = (max - origin) / distance;
+      if (t0 > t1) [t0, t1] = [t1, t0];
+      enter = Math.max(enter, t0);
+      exit = Math.min(exit, t1);
+      return enter <= exit;
+    };
+
+    if (!clipAxis(x0, dx, left, right) || !clipAxis(y0, dy, top, bottom)) return null;
+    return enter >= 0 && enter <= 1 ? enter : null;
+  }
+
+  // The single collision owner for every projectile team. It evaluates all eligible
+  // objects against the projectile's swept travel segment, orders them by physical
+  // contact time, and consumes exactly the first contact whose effect accepts it.
+  tryHitInteractiveActor(projectile) {
+    const contacts = [];
+    for (const target of this.getProjectileCollisionCandidates(projectile)) {
+      const rect = this.getProjectileTargetRect(target);
+      if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+      const time = this.getSweptProjectileContactTime(projectile, rect);
+      if (time !== null) contacts.push({ target, time });
+    }
+    contacts.sort((a, b) => a.time - b.time);
+
+    for (const contact of contacts) {
+      const { target, time } = contact;
+      if (!this.isProjectileTargetEligible(projectile, target)) continue;
+      const endX = projectile.sprite.x;
+      const endY = projectile.sprite.y;
+      projectile.sprite.setPosition(
+        projectile.previousX + (endX - projectile.previousX) * time,
+        projectile.previousY + (endY - projectile.previousY) * time
+      );
+      if (target.kind === 'actor' && this.strikeActor(target.entity)) return true;
+      if (target.kind === 'boss' && this.tryHitBoss(projectile, target.entity)) return true;
+      if (target.kind === 'player' && this.tryHitPlayer(projectile, target.entity)) return true;
+      projectile.sprite.setPosition(endX, endY);
     }
     return false;
   }
@@ -2017,8 +2322,8 @@ class LevelScene extends Phaser.Scene {
     if (this.boss || !this.cfg.sprites.femme_fatale_idle) return;
     const spec = {
       id: 'femme_fatale',
-      targetX: 810,   // just outside the hero's box (walkMaxX 780) -- she walks up to him
-      footY: PARTY.stageFootY,
+      targetX: interimX(810),   // INTERIM: just outside the hero's box -- she walks up to him
+      footY: PARTY.groundY,
       displayContentHeight: PARTY.bossContentHeight,
       idle: { textureKey: 'femme_fatale_idle', animationKey: LEVEL3_ANIM_GROUPS.loops.sheets.femme_fatale_idle },
       walkIn: this.cfg.sprites.femme_fatale_entrance
@@ -2026,7 +2331,7 @@ class LevelScene extends Phaser.Scene {
         : null,
       clipBottomY: null,
     };
-    const sprite = this.add.sprite(PARTY.wingX, PARTY.stageFootY, spec.idle.textureKey, 0)
+    const sprite = this.add.sprite(PARTY.wingX, PARTY.groundY, spec.idle.textureKey, 0)
       .setDepth(PARTY_DEPTH.boss);
     this.boss = { spec, sprite, state: spec.walkIn ? 'walking_in' : 'on_mark' };
     this.setActorVisual(this.boss, spec.walkIn || spec.idle);
@@ -2052,29 +2357,86 @@ class LevelScene extends Phaser.Scene {
     boss.sprite.setPosition(boss.sprite.x + Math.sign(dx) * step, boss.spec.footY);
   }
 
-  // STUB BOUNDARY, flagged as temporary: GAME_PLAN's asset ledger still lists her
-  // "killer-look attack" as ungenerated, so there is no attack animation and no impact
-  // frame to time the kill off. Arrival on her mark IS the attack for now -- one named
-  // seam a real attack sequence slots into later, with nothing invented in between.
+  // Package G (docs/LEVEL3_BOSS_SEQUENCE_SPEC.md): arrival throws the kiss. It no longer
+  // kills Manos directly -- that was the game's last true instant/implied hit. The actual
+  // defeat now only ever happens through the kiss's onImpact seam (handleBossKissImpact()).
   arriveBoss() {
     this.boss.state = 'on_mark';
     this.setActorVisual(this.boss, this.boss.spec.idle);
-    this.killManos();
+    this.spawnBossKiss();
+  }
+
+  // The kiss she throws from her forehead (spec section "The sequence he wants", step 2): a
+  // REAL projectile spawned through F's hostile seam, so it travels and is dodgeable in
+  // principle rather than an implied hit. One-shot per boss appearance.
+  spawnBossKiss() {
+    const boss = this.boss;
+    if (!boss || this.bossKissRequested) return;
+    this.bossKissRequested = true;
+    const spawn = {
+      x: boss.sprite.x,
+      y: boss.sprite.y - boss.spec.displayContentHeight * BOSS_KISS_FOREHEAD_HEIGHT_RATIO,
+    };
+    const flip = this.player.x <= boss.sprite.x; // true == travelling toward -x
+    this.spawnProjectileDirectional('kiss', flip, {
+      team: 'hostile',
+      emitter: boss.sprite,
+      // Stand-in texture -- no kiss-specific projectile art exists yet. Real art:
+      // assets/generated/effects/boss_killer_look/boss_killer_look_projectile.png (named in
+      // docs/PLAN_SWAP_BLOCKING_HITS.md's Item 3), registered like any other sprite key.
+      textureKey: 'heart_icon',
+      spawn,
+      target: { kind: 'player', entity: this.player },
+      onImpact: () => this.handleBossKissImpact(),
+    });
+  }
+
+  // The kiss landing (spec steps 3-6): dizzy -> dizzy WHILE singing -> the existing
+  // non-looping collapse -> floor singing. Locks input immediately, same as killManos(),
+  // but defers the actual defeat/collapse until the two holds below finish. Idempotent
+  // against a duplicate onImpact call.
+  handleBossKissImpact() {
+    if (this.manosDefeated || this.bossSequenceActive) return;
+    this.bossSequenceActive = true;
+    this.cancelGesture();
+    this.mSequenceActive = false;
+    this.debugRapidFireAccumMs = 0;
+    this.touchState.left = false;
+    this.touchState.right = false;
+    this.touchState.jump = false;
+    this.player.setVelocityX(0);
+    this.playPlayerVisual('dizzy_hit');
+    this.bossKissDizzyTimer = this.time.delayedCall(BOSS_KISS_DIZZY_HOLD_MS, () => {
+      this.bossKissDizzyTimer = null;
+      if (!this.bossSequenceActive) return;
+      this.playPlayerVisual('dizzy_singing');
+      this.bossKissSingingTimer = this.time.delayedCall(BOSS_KISS_SINGING_HOLD_MS, () => {
+        this.bossKissSingingTimer = null;
+        if (!this.bossSequenceActive) return;
+        this.bossSequenceActive = false;
+        // killManos() owns the actual collapse from here: grounded starts it immediately,
+        // airborne lets physics settle him first (see its own comment).
+        this.killManos();
+      });
+    });
   }
 
   // A projectile overlapping her is consumed and nothing else -- she has no hitsReceived,
   // no dizzy sheet and no state to enter. The flag is recorded only so the future
   // no-flinch reaction (also ungenerated) has something to hang off.
-  tryHitBoss(projectileBounds) {
-    const boss = this.boss;
-    if (!boss) return false;
-    const rect = this.getActorHitRect(boss);
-    if (rect.width <= 0 || rect.height <= 0) return false;
-    if (projectileBounds.right <= rect.left || projectileBounds.left >= rect.left + rect.width
-      || projectileBounds.bottom <= rect.top || projectileBounds.top >= rect.top + rect.height) {
-      return false;
-    }
+  tryHitBoss(projectile, boss) {
+    if (projectile.team !== 'player' || !boss || boss !== this.boss || projectile.emitter === boss) return false;
     this.bossNoFlinchRequested = true;
+    return true;
+  }
+
+  // Package G's impact seam. F supplies hostile targeting/swept contact and calls the
+  // callback only on physical player contact; G remains responsible for boss emission,
+  // its asset/lifecycle, and passing the eventual kill callback.
+  tryHitPlayer(projectile, player) {
+    if (projectile.team !== 'hostile' || player !== this.player || projectile.emitter === player
+      || this.manosDefeated) return false;
+    if (typeof projectile.onImpact === 'function') projectile.onImpact(projectile, player);
     return true;
   }
 
@@ -2084,20 +2446,62 @@ class LevelScene extends Phaser.Scene {
     this.boss = null;
   }
 
-  // Manos's death. STUB VISUAL, flagged as temporary: GAME_PLAN's asset ledger line 262
-  // still lists the dizzy-to-collapse sheet as not generated, so the existing (non-fatal)
-  // dizzy_love loop stands in for it -- clean reuse, nothing invented.
-  //
-  // The freeze is a flag read by update()'s FIRST movement branch, not a one-off velocity
-  // write: after this point no input, gesture, jump or cutscene branch can move him again.
-  // Everything else in the scene keeps running untouched (the cast keeps idling, the song
-  // keeps playing) so a later song-end/credits pass has a live scene to end.
+  clearDeathCompletionHandler() {
+    if (!this.deathCompleteHandler || !this.player) return;
+    this.player.off('animationcomplete-dizzyDeathAnim', this.deathCompleteHandler);
+    this.deathCompleteHandler = null;
+  }
+
+  // State 6 (spec): singing on the floor, continuing from the death's final pose. Stand-in:
+  // freeze on dizzy_death's last frame rather than play anything, since no separate
+  // floor-singing loop exists yet. Real-art swap, once PLAYER_VISUALS.floor_singing points at
+  // an actual loop: replace this method's body with
+  // `this.player.anims.play(visual.animationKey, true); this.resizeBodyForTexture();` --
+  // no other call site changes.
+  startFloorSinging() {
+    const visual = this.getPlayerVisual('floor_singing');
+    const meta = this.cfg.sprites[visual.textureKey];
+    this.player.anims.stop();
+    this.player.setFrame(meta.frames - 1);
+    this.applyPlayerFrameAnchor(meta.frames - 1);
+  }
+
+  startGroundedDeath() {
+    if (this.deathStarted || !this.manosDefeated) return;
+    this.deathPending = false;
+    this.deathStarted = true;
+    this.player.setVelocity(0, 0);
+    this.playPlayerVisual('dizzy_death');
+    this.clearDeathCompletionHandler();
+    this.deathCompleteHandler = () => {
+      this.deathCompleteHandler = null;
+      if (!this.manosDefeated || !this.player || !this.player.active) return;
+      // Spec step 6: keeps singing on the floor, from the collapse's own final pose.
+      this.startFloorSinging();
+    };
+    this.player.once('animationcomplete-dizzyDeathAnim', this.deathCompleteHandler);
+  }
+
+  // Defeat takes input ownership immediately. A grounded impact starts the one-shot
+  // collapse now; an airborne impact keeps the current vertical velocity and gravity so
+  // Manos completes the real physics arc before that grounded animation begins.
   killManos() {
     if (this.manosDefeated) return;
     this.manosDefeated = true;
     this.cancelGesture();
-    this.player.setVelocity(0, 0);
-    this.player.anims.play('dizzyLoveAnim', true);
+    this.mSequenceActive = false;
+    this.debugRapidFireAccumMs = 0;
+    this.touchState.left = false;
+    this.touchState.right = false;
+    this.touchState.jump = false;
+    this.player.body.allowGravity = true;
+    this.player.setVelocityX(0);
+    if (this.player.body.onFloor()) {
+      this.startGroundedDeath();
+    } else {
+      this.deathPending = true;
+      this.playPlayerVisual('jump');
+    }
   }
 
   destroyInteractiveActors() {
@@ -2137,7 +2541,7 @@ class LevelScene extends Phaser.Scene {
     this.gesture = type;
     if (type === 'heart') {
       this._projSpawned = false;
-      this.player.anims.play('giveHeartAnim', true);
+      this.playPlayerVisual('heart');
       this.gestureCompleteEvent = 'animationcomplete-giveHeartAnim';
       this.gestureCompleteHandler = () => {
         this.gestureCompleteEvent = null;
@@ -2147,7 +2551,7 @@ class LevelScene extends Phaser.Scene {
       this.player.once(this.gestureCompleteEvent, this.gestureCompleteHandler);
     } else if (type === 'flowers') {
       this._projSpawned = false;
-      this.player.anims.play('giveFlowersAnim', true);
+      this.playPlayerVisual('flowers');
       this.gestureCompleteEvent = 'animationcomplete-giveFlowersAnim';
       this.gestureCompleteHandler = () => {
         this.gestureCompleteEvent = null;
@@ -2156,7 +2560,7 @@ class LevelScene extends Phaser.Scene {
       };
       this.player.once(this.gestureCompleteEvent, this.gestureCompleteHandler);
     } else if (type === 'dizzy') {
-      this.player.anims.play('dizzyLoveAnim', true);
+      this.playPlayerVisual('dizzy_love');
       this.gestureTimer = this.time.delayedCall(2000, () => {
         this.gestureTimer = null;
         this.gesture = null;
@@ -2212,7 +2616,8 @@ class LevelScene extends Phaser.Scene {
       state: this.getKeyboardSoloRestoreState(actor, priorState),
       flipX: actor.sprite.flipX,
     };
-    actor.keyboardSoloTargetX = Phaser.Math.Clamp(this.player.x - 135, 475, 815);
+    // INTERIM (band placement held): old 135 / 475..815, converted.
+    actor.keyboardSoloTargetX = Phaser.Math.Clamp(this.player.x - interimX(135), interimX(475), interimX(815));
     actor.state = 'keyboard_solo_walking';
     actor.sprite.setVisible(true);
     actor.sprite.setAlpha(1);
@@ -2248,14 +2653,16 @@ class LevelScene extends Phaser.Scene {
   startTheatreKeyboardSolo() {
     if (this.theatreKeyboardSolo || !this.cfg.sprites[KEYBOARD_SOLO_VISUALS.walking.textureKey]
       || !this.cfg.sprites[KEYBOARD_SOLO_VISUALS.standing.textureKey]) return;
+    // INTERIM (band placement/scale held): old target 555, spawn 1010, height 180 and the
+    // old 498 stage line, converted.
     const spec = {
-      targetX: 555,
-      footY: THEATRE.stageFootY,
-      displayContentHeight: 180,
+      targetX: interimX(555),
+      footY: interimY(498),
+      displayContentHeight: interimY(180),
       depth: THEATRE_DEPTH.soprano + 1,
       clipBottomY: null,
     };
-    const sprite = this.add.sprite(1010, spec.footY, KEYBOARD_SOLO_VISUALS.walking.textureKey, 0)
+    const sprite = this.add.sprite(interimX(1010), spec.footY, KEYBOARD_SOLO_VISUALS.walking.textureKey, 0)
       .setDepth(spec.depth)
       .setFlipX(false)
       .setAlpha(1);
@@ -2352,7 +2759,8 @@ class LevelScene extends Phaser.Scene {
     this.exitPinX = null;
     this.theatrePhoneStarted = true;
     const walk = this.cfg.sprites.walk;
-    const walkScale = THEATRE.playerScale * (this.cfg.sprites.idle.contentHeight / walk.contentHeight);
+    const walkVisual = this.cfg.playerVisuals.visuals.walk;
+    const walkScale = PLAYER_LEVEL_REFERENCE_HEIGHTS.theatre / walkVisual.bodyReferenceHeight;
     const walkHalfWidth = (walk.frameWidth * walkScale) / 2;
     const travelSeconds = (this.player.x + walkHalfWidth + THEATRE_EXIT_CLEARANCE_PX) / SPEED;
     this.theatreWalkOffSeconds = LEVEL3_ENTRANCE_SECONDS - travelSeconds;
@@ -2439,7 +2847,7 @@ class LevelScene extends Phaser.Scene {
     // (if any) was mid-playback when the handoff hit. Force any in-progress gesture to end
     // right now so the next update() tick takes the cutsceneActive branch, not the gesture one.
     this.cancelGesture();
-    this.player.anims.play('phonePullAnim', true);
+    this.playPlayerVisual('phone_pull');
     this.phonePullCompleteHandler = () => {
       this.phonePullCompleteHandler = null;
       if (!this.isPhonePresentationCurrent()) return;
@@ -2448,9 +2856,9 @@ class LevelScene extends Phaser.Scene {
       // its dynamically computed walk cue, then returns to its read-while-walking stride.
       if (this.phoneOwner === 'theatre' && this.theatreWalkOffSeconds !== null
         && this.getLevelElapsed() < this.theatreWalkOffSeconds) {
-        this.player.anims.play('phoneCheckIdleAnim', true);
+        this.playPlayerVisual('phone_check_idle');
       } else {
-        this.player.anims.play(this.phoneOwner === 'level1' ? 'phoneCheckIdleAnim' : 'phoneReadAnim', true);
+        this.playPlayerVisual(this.phoneOwner === 'level1' ? 'phone_check_idle' : 'phone_read');
       }
       this.showPhonePanel();
     };
@@ -2541,9 +2949,9 @@ class LevelScene extends Phaser.Scene {
       // holding here, so its movement branch owns the later transition to walking.
       if (this.phoneOwner === 'theatre' && this.theatreWalkOffSeconds !== null
         && this.getLevelElapsed() < this.theatreWalkOffSeconds) {
-        this.player.anims.play('phoneCheckIdleAnim', true);
+        this.playPlayerVisual('phone_check_idle');
       } else {
-        this.player.anims.play('walkAnim', true);
+        this.playPlayerVisual('walk');
       }
       // The message has been shown for its full staged duration and the panel has slid
       // back out. This is half of the fade condition in update(); the other half is him
@@ -2584,13 +2992,11 @@ class LevelScene extends Phaser.Scene {
     if (this.level2Active) return;
     this.cancelPhonePresentation();
 
-    for (const projectile of this.projectiles) projectile.sprite.destroy();
-    this.projectiles = [];
+    this.destroyProjectiles();
     this.destroyInteractiveActors();
-    // Level 1's wedding-party dressing and animated background are Fara7-only scenery
-    // that would otherwise leak straight into the Theatre.
+    // Level 1's wedding-party dressing is Fara7-only scenery that would otherwise leak
+    // straight into the Theatre (the background is replaced below).
     this.destroyPassiveAudience();
-    if (this.level1Bg) { this.level1Bg.destroy(); this.level1Bg = null; }
     this.cancelGesture();
 
     const interiorGroundY = THEATRE.apronFootY;
@@ -2601,28 +3007,23 @@ class LevelScene extends Phaser.Scene {
     this.cameras.main.setFollowOffset(0, 0);
     this.cameras.main.setBounds(0, 0, STAGE_VIEW.width, STAGE_VIEW.height);
     this.cameras.main.centerOn(STAGE_VIEW.width / 2, STAGE_VIEW.height / 2);
-    // 700x390 source frames stretched to the 1376x768 canvas -- a 1.966x scale in both
-    // axes (the two aspect ratios agree to within 0.2%, so nothing is visibly distorted).
-    this.level2Bg = this.add.sprite(0, 0, 'level2_theatre_bg')
-      .setOrigin(0, 0)
-      .setDepth(THEATRE_DEPTH.background);
-    this.level2Bg.anims.play('theatreBgAnim', true);
-    this.level2Bg.setDisplaySize(STAGE_VIEW.width, STAGE_VIEW.height);
+    this.showLevelBackground('level2_theatre_bg', THEATRE_DEPTH.background);
+    this.projectileForegroundDepth = null;
     this.buildTheatreActors();
 
     this.ground.setPosition(STAGE_VIEW.width / 2, interiorGroundY + 20);
     this.ground.setSize(STAGE_VIEW.width, 40);
     this.ground.body.updateFromGameObject();
-    this.baseScale = THEATRE.playerScale;
     this.sizedForTexture = null;
-    this.player.anims.play('idleAnim', true);
-    this.resizeBodyForTexture();
+    this.anchoredPlayerFrame = null;
+    this.playPlayerVisual('idle', 'theatre');
     this.player.body.allowGravity = true;
     this.player.body.reset(THEATRE.playerSpawnX, interiorGroundY - 2);
     this.player.setVelocity(0, 0);
-    // He arrives still flipped from the leftward walk off the wedding stage; the whole
-    // Theatre cast stands to his RIGHT, so face him at it rather than at the side wall.
-    this.player.setFlipX(false);
+    // Package E: he now spawns at the plate's measured stage-RIGHT mark, so the whole
+    // Theatre cast (trio + mic, all west of him) is on his LEFT -- flip to face it, the
+    // opposite of the old stage-left spawn's flipX(false).
+    this.player.setFlipX(true);
     // Re-armed after Level 1's scripted exit turned it off to let him leave the frame.
     this.player.setCollideWorldBounds(true);
 
@@ -2662,15 +3063,13 @@ class LevelScene extends Phaser.Scene {
 
     this.destroyTheatreKeyboardSolo();
     this.cancelPhonePresentation();
-    for (const projectile of this.projectiles) projectile.sprite.destroy();
-    this.projectiles = [];
+    this.destroyProjectiles();
     this.destroyInteractiveActors();
     // The Theatre mic group and its join state are Level-2-only and outside the roster, so
     // nothing above reaches it. Party builds a fresh, separate mic below.
     this.destroyTheatreMic();
-    // Clear the shared scenery list and Theatre's animated background before Party.
+    // Clear the shared scenery list before Party (the background is replaced below).
     this.destroyPassiveAudience();
-    if (this.level2Bg) { this.level2Bg.destroy(); this.level2Bg = null; }
     this.cancelGesture();
 
     this.worldMinX = 0;
@@ -2681,38 +3080,22 @@ class LevelScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, STAGE_VIEW.width, STAGE_VIEW.height);
     this.cameras.main.centerOn(STAGE_VIEW.width / 2, STAGE_VIEW.height / 2);
 
-    // The pre-lit plate: heart-free twin of swapToLitPartyBackground()'s animated sheet, same
-    // string-light/sparkle timing. Falls back to the old static unlit plate (kept loaded for
-    // exactly this) if the generated sheet is ever missing at runtime.
-    if (this.cfg.sprites.level3_party_bg_prelit) {
-      this.partyBg = this.add.sprite(0, 0, 'level3_party_bg_prelit')
-        .setOrigin(0, 0)
-        .setDepth(PARTY_DEPTH.background);
-      this.partyBg.anims.play(LEVEL3_ANIM_GROUPS.background.sheets.level3_party_bg_prelit, true);
-    } else {
-      this.partyBg = this.add.image(0, 0, LEVEL3_BASE_PLATE_KEY)
-        .setOrigin(0, 0)
-        .setDepth(PARTY_DEPTH.background);
-    }
-    this.partyBg.setDisplaySize(STAGE_VIEW.width, STAGE_VIEW.height);
+    this.showLevelBackground('level3_party_bg', PARTY_DEPTH.background);
+    this.projectileForegroundDepth = null;
 
     this.buildPartyActors();
 
-    this.ground.setPosition(STAGE_VIEW.width / 2, PARTY.stageFootY + 20);
+    this.ground.setPosition(STAGE_VIEW.width / 2, PARTY.groundY + 20);
     this.ground.setSize(STAGE_VIEW.width, 40);
     this.ground.body.updateFromGameObject();
-    // The Party is a WIDER shot than either earlier level (its deck lip sits at y 567
-    // against Fara7's 628, and its cast reads ~150px tall against Fara7's 214.5), so the
-    // hero is re-scaled to the art rather than carried over at Level 1/2's size -- at 214.5
-    // his head would cover the "فرح شعبي" banner. sizedForTexture is cleared because
-    // resizeBodyForTexture() short-circuits on an unchanged texture key and would otherwise
-    // never notice the new baseScale.
-    this.baseScale = PARTY.playerContentHeight / this.cfg.sprites.idle.contentHeight;
+    // Each level has its own measured on-screen anatomical reference height.
+    // sizedForTexture is cleared because resizeBodyForTexture() short-circuits on an
+    // unchanged texture key and would otherwise never notice the new reference height.
     this.sizedForTexture = null;
-    this.player.anims.play('idleAnim', true);
-    this.resizeBodyForTexture();
+    this.anchoredPlayerFrame = null;
+    this.playPlayerVisual('idle', 'party');
     this.player.body.allowGravity = true;
-    this.player.body.reset(PARTY.playerSpawnX, PARTY.stageFootY - 2);
+    this.player.body.reset(PARTY.playerSpawnX, PARTY.groundY - 2);
     this.player.setVelocity(0, 0);
     // The band enters from his right, the sopranos stand there too -- face him at the cast.
     this.player.setFlipX(false);
@@ -2748,19 +3131,12 @@ class LevelScene extends Phaser.Scene {
     this.cameras.main.fadeIn(600, 10, 14, 26);
   }
 
-  // The heart marquee powers on. Guarded by partyBgLit so the swap only fires once
-  // even if called from both the 143s cue and 160s spawnBoss(). Both plates were measured
-  // to share the same stage geometry, so nothing on stage has to move across this swap.
+  // The heart-marquee beat (143s cue / 160s spawnBoss()), one-shot via partyBgLit.
+  // ponytail: the new Party plate has no heart marquee and ships as a single loop, so
+  // there is nothing to swap to; the hook and its two cue callers stay so a lit loop can
+  // be dropped back in here (showLevelBackground()) if that art returns.
   swapToLitPartyBackground() {
-    if (this.partyBgLit) return;
     this.partyBgLit = true;
-    if (this.partyBg) { this.partyBg.destroy(); this.partyBg = null; }
-    if (!this.cfg.sprites.level3_party_bg) return;
-    this.partyBg = this.add.sprite(0, 0, 'level3_party_bg')
-      .setOrigin(0, 0)
-      .setDepth(PARTY_DEPTH.background);
-    this.partyBg.anims.play(LEVEL3_ANIM_GROUPS.background.sheets.level3_party_bg, true);
-    this.partyBg.setDisplaySize(STAGE_VIEW.width, STAGE_VIEW.height);
   }
 
   // Heart-marquee light-up at 143s, independent of and before the 160s boss entrance.
@@ -2783,53 +3159,113 @@ class LevelScene extends Phaser.Scene {
     this.spawnProjectileDirectional(type, this.player.flipX);
   }
 
-  spawnProjectileDirectional(type, flip) {
-    const isHeart = type === 'heart';
-    const texKey = isHeart ? 'heart_icon' : 'flowers_icon';
-    const trajectoryMode = this.level3Active ? 'partyArc' : 'descending';
-    let spawnX;
-    let spawnY;
-    if (trajectoryMode === 'partyArc') {
-      // update() only calls resizeBodyForTexture() at its own end, so a shot spawned the
-      // same tick a texture just changed (e.g. the M-key's singing animation) would
-      // otherwise read the PREVIOUS texture's stale displayWidth/displayHeight here.
-      this.resizeBodyForTexture();
-      // Ratios are the held-object's approximate center within its gesture frame,
-      // measured from the same crop used to produce the icon assets (see ticket).
-      // No PROJECTILE_Y_OFFSET here (RUN19 Ticket C) -- that flat 120px shift was
-      // calibrated against Level 1's much larger on-screen scale and dragged Party's
-      // spawn point down near his feet; removing it restores the hand-relative position
-      // these ratios were originally measured against.
-      const ratioX = isHeart ? 0.877 : 0.861;
-      const ratioY = isHeart ? 0.197 : 0.167;
-      const rx = flip ? (1 - ratioX) : ratioX;
-      spawnX = this.player.x - this.player.displayWidth / 2 + rx * this.player.displayWidth;
-      spawnY = this.player.y - this.player.displayHeight + ratioY * this.player.displayHeight;
-    } else {
-      spawnX = this.player.body.center.x;
-      spawnY = this.player.body.center.y;
-    }
+  getPlayerProjectileSocket(direction) {
+    // Synchronise the active visual before reading the shared root/scale contract. In
+    // particular, M mode can select its singing sheet earlier in this same update tick.
+    this.resizeBodyForTexture();
+    const bodyHeight = this.playerReferenceHeight || this.getPlayerReferenceHeight();
+    return {
+      x: this.player.x + direction * PLAYER_PROJECTILE_SOCKET.forwardBodyHeights * bodyHeight,
+      y: this.player.y - PLAYER_PROJECTILE_SOCKET.upBodyHeights * bodyHeight,
+    };
+  }
 
-    const icon = this.add.sprite(spawnX, spawnY, texKey);
+  getProjectileDepth() {
+    return Number.isFinite(this.projectileForegroundDepth)
+      ? this.projectileForegroundDepth + 1
+      : 0;
+  }
+
+  findDirectionalProjectileTarget(projectile) {
+    let best = null;
+    let bestDistance = Infinity;
+    for (const target of this.getProjectileCollisionCandidates(projectile)) {
+      const rect = this.getProjectileTargetRect(target);
+      if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+      const centreX = rect.left + rect.width / 2;
+      const overlapsSpawnX = projectile.spawnX >= rect.left
+        && projectile.spawnX <= rect.left + rect.width;
+      if (!overlapsSpawnX && projectile.direction * (centreX - projectile.spawnX) < 0) continue;
+      const forwardDistance = projectile.direction > 0
+        ? Math.max(0, rect.left - projectile.spawnX)
+        : Math.max(0, projectile.spawnX - (rect.left + rect.width));
+      if (forwardDistance < bestDistance) {
+        best = target;
+        bestDistance = forwardDistance;
+      }
+    }
+    return best;
+  }
+
+  pointProjectileAtTarget(projectile) {
+    const point = this.getProjectileTargetPoint(projectile);
+    if (!point) return false;
+    const dx = point.x - projectile.sprite.x;
+    const dy = point.y - projectile.sprite.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= 0.000001) return true;
+    projectile.vx = dx / distance * projectile.speed;
+    projectile.vy = dy / distance * projectile.speed;
+    return true;
+  }
+
+  // `options` is also Package G's integration contract: a future boss shot supplies
+  // team:'hostile', emitter, textureKey, spawn:{x,y}, optional
+  // target:{kind:'player', entity:this.player}, and onImpact.
+  // Player-team shots always use the one canonical Manos socket regardless of caller.
+  spawnProjectileDirectional(type, flip, options = {}) {
+    const isHeart = type === 'heart';
+    const team = options.team || 'player';
+    const direction = flip ? -1 : 1;
+    const emitter = options.emitter || (team === 'player' ? this.player : null);
+    const spawn = team === 'player' ? this.getPlayerProjectileSocket(direction) : options.spawn;
+    if (!spawn || !Number.isFinite(spawn.x) || !Number.isFinite(spawn.y)) return null;
+    const texKey = options.textureKey || (isHeart ? 'heart_icon' : 'flowers_icon');
+    const icon = this.add.sprite(spawn.x, spawn.y, texKey);
     icon.setFlipX(flip);
-    // RUN 21: Fara7's new foreground crowd sits at FARA7_DEPTH.crowd (1), in front
-    // of the default depth-0 world -- without this, a low-arcing throw could
-    // render BEHIND the crowd and visually vanish. Theatre/Party have no such
-    // foreground layer, so their projectiles keep the existing default depth.
-    if (!this.level2Active && !this.level3Active) icon.setDepth(2);
-    this.projectiles.push({
+    icon.setDepth(options.depth === undefined ? this.getProjectileDepth() : options.depth);
+    const projectile = {
       sprite: icon,
-      vx: flip ? -PROJECTILE_SPEED : PROJECTILE_SPEED,
-      trajectoryMode,
+      team,
+      emitter,
+      direction,
+      speed: options.speed || PROJECTILE_SPEED,
+      vx: direction * (options.speed || PROJECTILE_SPEED),
+      vy: 0,
+      target: options.target || null,
+      onImpact: options.onImpact || null,
       ageMs: 0,
-      spawnX,
-      spawnY,
-    });
+      ttlMs: options.ttlMs || PROJECTILE_TTL_MS,
+      spawnX: spawn.x,
+      spawnY: spawn.y,
+      previousX: spawn.x,
+      previousY: spawn.y,
+      halfWidth: icon.displayWidth / 2,
+      halfHeight: icon.displayHeight / 2,
+      hasRenderedFlight: false,
+    };
+    if (!projectile.target) projectile.target = this.findDirectionalProjectileTarget(projectile);
+    this.pointProjectileAtTarget(projectile);
+    this.projectiles.push(projectile);
+    return projectile;
+  }
+
+  destroyProjectiles() {
+    for (const projectile of this.projectiles || []) {
+      if (projectile.sprite && projectile.sprite.active) projectile.sprite.destroy();
+    }
+    this.projectiles = [];
   }
 
   updateProjectiles(delta) {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const proj = this.projectiles[i];
+      // Keep the launch state renderable for one frame. The following tick sweeps from
+      // that exact socket, so delaying movement does not create a collision blind spot.
+      if (!proj.hasRenderedFlight) {
+        proj.hasRenderedFlight = true;
+        continue;
+      }
       // Accumulate age from the smoothed/capped `delta` Phaser already hands every
       // update() tick, NOT raw wall-clock `this.time.now - spawnTime` -- a backgrounded
       // tab resuming after real time has passed would otherwise make the projectile
@@ -2837,22 +3273,32 @@ class LevelScene extends Phaser.Scene {
       // review catch, RUN 11 Seq 1 -- confirmed via Phaser's own Clock/TimeStep source:
       // `delta` is deliberately capped, `time.now` is not).
       proj.ageMs += delta;
-      const ageSeconds = proj.ageMs / 1000;
-      proj.sprite.x = proj.spawnX + proj.vx * ageSeconds;
-      proj.sprite.y = proj.trajectoryMode === 'descending'
-        ? proj.spawnY + PROJECTILE_DESCENT_SPEED * ageSeconds
-        : proj.spawnY - 16 * Math.sin(Math.PI * ageSeconds);
+      proj.previousX = proj.sprite.x;
+      proj.previousY = proj.sprite.y;
+      if (proj.target && !this.isProjectileTargetEligible(proj, proj.target)) {
+        // Preserve the last real heading. Losing a target never turns guidance into a
+        // guaranteed hit or silently reacquires a different actor.
+        proj.target = null;
+      } else if (proj.target) {
+        this.pointProjectileAtTarget(proj);
+      }
+      const stepSeconds = delta / 1000;
+      proj.sprite.x += proj.vx * stepSeconds;
+      proj.sprite.y += proj.vy * stepSeconds;
 
       // One projectile is spent by one ACCEPTED hit -- including a below-threshold one
       // that leaves the actor standing, which is what makes three hits cost three throws.
-      if (this.tryHitInteractiveActor(proj.sprite.getBounds())) {
+      if (this.tryHitInteractiveActor(proj)) {
         proj.sprite.destroy();
         this.projectiles.splice(i, 1);
         continue;
       }
 
-      const outOfBounds = proj.sprite.x < this.worldMinX - 50 || proj.sprite.x > this.worldMaxX + 50;
-      const expired = proj.ageMs > 3000;
+      const outOfBounds = proj.sprite.x < this.worldMinX - PROJECTILE_WORLD_MARGIN
+        || proj.sprite.x > this.worldMaxX + PROJECTILE_WORLD_MARGIN
+        || proj.sprite.y < -PROJECTILE_WORLD_MARGIN
+        || proj.sprite.y > STAGE_VIEW.height + PROJECTILE_WORLD_MARGIN;
+      const expired = proj.ageMs > proj.ttlMs;
       if (outOfBounds || expired) {
         proj.sprite.destroy();
         this.projectiles.splice(i, 1);
@@ -2876,9 +3322,11 @@ class LevelScene extends Phaser.Scene {
     const elapsed = this.getLevelElapsed();
     const mJustDown = Phaser.Input.Keyboard.JustDown(this.keyM);
     const mSequenceEligibleAtInput = !this.introActive && !this.level2Revealing && !this.level3Revealing
-      && !this.exitSettling && !this.cutsceneActive && !this.gesture && !this.manosDefeated;
+      && !this.exitSettling && !this.cutsceneActive && !this.gesture && !this.manosDefeated
+      && !this.bossSequenceActive;
 
     this.updateIntro(elapsed);
+    this.updateLevelBackground(elapsed);
     // Level 1: real keyboard solo at 0:50, with the existing phone exit still fixed at
     // 0:53. Theatre owns its separate 1:45 solo and 1:53 phone presentation.
     this.updateStageExit(elapsed, delta);
@@ -2909,7 +3357,7 @@ class LevelScene extends Phaser.Scene {
     // no gesture is already playing, and the cutscene hasn't taken over movement; skip
     // movement/jump entirely while one runs.
     if (!this.introActive && !this.level2Revealing && !this.level3Revealing && !this.manosDefeated
-      && !this.gesture && onFloor && !this.cutsceneActive) {
+      && !this.bossSequenceActive && !this.gesture && onFloor && !this.cutsceneActive) {
       if (Phaser.Input.Keyboard.JustDown(this.keyL) || this.touchState.heart) this.startGesture('heart');
       else if (Phaser.Input.Keyboard.JustDown(this.keyF) || this.touchState.flowers) this.startGesture('flowers');
       else if (Phaser.Input.Keyboard.JustDown(this.keyD) || this.touchState.dizzy) this.startGesture('dizzy');
@@ -2932,20 +3380,25 @@ class LevelScene extends Phaser.Scene {
       this.player.setVelocity(0, 0);
     } else if (this.manosDefeated) {
       // FIRST branch on purpose: nothing below -- input, gesture, jump or any cutscene
-      // branch -- can reach him again once the boss's attack has landed. No anims.play()
-      // here either; killManos() started the (repeat:-1) death-stub loop and this branch
-      // must not restart it every tick.
+      // branch -- can reach him again once the boss's attack has landed. If impact was in
+      // the air, vertical physics remains live until the body reports a grounded contact.
+      this.player.setVelocityX(0);
+      if (this.deathPending && onFloor) this.startGroundedDeath();
+    } else if (this.bossSequenceActive) {
+      // The kiss landed but the actual collapse hasn't started yet (spec steps 3-4, dizzy
+      // then dizzy-while-singing) -- same input lockout as manosDefeated above, minus the
+      // death-start check, since handleBossKissImpact() owns that handoff on its own timer.
       this.player.setVelocityX(0);
     } else if (this.level2Revealing || this.level3Revealing) {
       this.player.setVelocityX(0);
-      this.player.anims.play('idleAnim', true);
+      this.playPlayerVisual('idle');
     } else if (this.gesture) {
       this.player.setVelocityX(0);
     } else if (this.exitSettling) {
       // A phone handoff caught him mid-jump: gravity finishes the arc (Y untouched), X is
       // already pinned by updateStageExit() -- arrow keys must not drag him off it.
       this.player.setVelocityX(0);
-      this.player.anims.play('jumpAnim', true);
+      this.playPlayerVisual('jump');
     } else if (this.cutsceneActive) {
       // Level 1 holds at the phone mark through the absolute 62s walk cue. Theatre holds
       // through its position-derived cue, then explicitly selects its walking animation
@@ -2967,7 +3420,7 @@ class LevelScene extends Phaser.Scene {
           const phonePullPlaying = this.player.anims.isPlaying && this.player.anims.currentAnim
             && this.player.anims.currentAnim.key === 'phonePullAnim';
           if (!phonePullPlaying) {
-            this.player.anims.play(this.phonePresentationDone ? 'walkAnim' : 'phoneReadAnim', true);
+            this.playPlayerVisual(this.phonePresentationDone ? 'walk' : 'phone_read');
           }
         }
       } else if (this.exitHoldOneTick) {
@@ -3003,13 +3456,13 @@ class LevelScene extends Phaser.Scene {
       }
 
       if (this.mSequenceActive) {
-        this.player.anims.play('manosStageSingingAnim', true);
+        this.playPlayerVisual('singing');
       } else if (!onFloor) {
-        this.player.anims.play('jumpAnim', true);
+        this.playPlayerVisual('jump');
       } else if (left || right) {
-        this.player.anims.play('walkAnim', true);
+        this.playPlayerVisual('walk');
       } else {
-        this.player.anims.play('idleAnim', true);
+        this.playPlayerVisual('idle');
       }
     }
 
@@ -3085,8 +3538,8 @@ window.game = new Phaser.Game({
   // which doesn't apply to this game's handful of sprites.
   type: Phaser.CANVAS,
   parent: 'game-container',
-  width: 1376,
-  height: 768,
+  width: STAGE_VIEW.width,
+  height: STAGE_VIEW.height,
   pixelArt: true,
   scale: {
     mode: Phaser.Scale.FIT,

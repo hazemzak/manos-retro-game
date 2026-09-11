@@ -1,0 +1,549 @@
+{
+  "_meta": {
+    "canvas": [
+      1280,
+      720
+    ],
+    "plateSize": {
+      "level1_fara7": [
+        1672,
+        941
+      ],
+      "level2_theatre": [
+        1672,
+        940
+      ],
+      "level3_party": [
+        1672,
+        941
+      ]
+    },
+    "sx": 0.7656,
+    "sy": {
+      "level1_fara7": 0.7651,
+      "level2_theatre": 0.766,
+      "level3_party": 0.7651
+    },
+    "space": "plate-local 1280x720 (x*sx, y*sy). Not world space.",
+    "footConvention": "footY = last figure row (feet/chair/kit base); footX = body centre at the floor, except mic composites (stand foot = MIC_ANCHOR) and drums (kit bbox centre = sheet contentCenterX).",
+    "heightConvention": "inclusive rows top..foot; scale = heightPx / sheet contentHeight (union alpha>0 bbox, re-measured from the PNGs, matches assets.json within 1px).",
+    "seatedToStanding": 0.76,
+    "registration": "all 3 populated plates align with their empty plates to within 0.3px (tile phase correlation, no offset, no scale) outside the painted-in figures/props."
+  },
+  "level1_fara7": {
+    "groundY": 566.2,
+    "groundYPlate": 740,
+    "performerLine": "band 734..735, couple 730, Manos 740 (front lip)",
+    "surfaces": [
+      {
+        "name": "deck (carpet) top",
+        "yBack": 528.7,
+        "yFrontLip": 566.2,
+        "xAtLip": [
+          187.6,
+          1090.9
+        ]
+      },
+      {
+        "name": "deck front face",
+        "y": [
+          571.6,
+          648.8
+        ]
+      },
+      {
+        "name": "plaza pavement / audience floor",
+        "y": [
+          648.8,
+          720.0
+        ],
+        "note": "hidden by crowd in populated plate"
+      }
+    ],
+    "actors": [
+      {
+        "key": "player",
+        "sheet": "idle",
+        "footX": 581.8,
+        "footY": 566.2,
+        "heightPx": 233.4,
+        "scale": 0.6745,
+        "sourcePlateCoords": {
+          "footX": 760,
+          "footY": 740,
+          "topY": 436,
+          "heightPx": 305
+        },
+        "confidence": "high",
+        "notes": "Manos. Hat top 436 (diff-clean), boot soles last row 740 = deck front lip. x is player-driven; 760 is the plate mark (hat centre 756, stance midpoint 764). Wide stance: straight-legged equivalent ~310px plate (+1.6%). playerScale = heightPx / idle.contentHeight(346)."
+      },
+      {
+        "key": "accordion",
+        "sheet": "musician_accordion_playing",
+        "footX": 187.6,
+        "footY": 562.4,
+        "heightPx": 155.3,
+        "scale": 0.4425,
+        "sourcePlateCoords": {
+          "footX": 245,
+          "footY": 735,
+          "topY": 533,
+          "heightPx": 203
+        },
+        "confidence": "medium (top high, feet low-medium)",
+        "notes": "Seated playing pose = musician_accordion_playing. Feet partly hidden by crowd hands. Chair sits ON the empty plate's deck left edge (x245 at lip) - left chair leg is on the plaza pavement, not the deck.",
+        "standingEstimate": {
+          "heightPx": 204.4,
+          "method": "plate seated height 203px / 0.76 (anthropometric), then x sy",
+          "confidence": "low",
+          "scaleBySheet": {
+            "musician_accordion_idle": 0.5479,
+            "musician_accordion_walkin": 0.3885,
+            "musician_accordion_love": 0.5479
+          }
+        },
+        "scaleBySheet": {
+          "musician_accordion_playing": 0.4425
+        }
+      },
+      {
+        "key": "keyboard",
+        "sheet": "musician_keyboard_idle",
+        "footX": 306.2,
+        "footY": 561.6,
+        "heightPx": 216.5,
+        "scale": 0.585,
+        "sourcePlateCoords": {
+          "footX": 400,
+          "footY": 734,
+          "topY": 520,
+          "heightPx": 215
+        },
+        "confidence": "low (height derived); position medium",
+        "notes": "Plate shows him SEATED on a stool at the keyboard; musician_keyboard_playing is STANDING - pose mismatch, no plate-matching sheet. heightPx/scale here are the standing estimate (seated 215px / 0.76), not a direct measure.",
+        "standingEstimate": {
+          "heightPx": 216.5,
+          "method": "plate seated height 215px / 0.76 (anthropometric), then x sy",
+          "confidence": "low",
+          "scaleBySheet": {
+            "musician_keyboard_idle": 0.585,
+            "musician_keyboard_walkin": 0.4203,
+            "musician_keyboard_love": 0.5666,
+            "musician_keyboard_playing": 0.622
+          }
+        }
+      },
+      {
+        "key": "couple",
+        "sheet": "fara7_couple_heart_chair_idle",
+        "footX": 759.4,
+        "footY": 558.6,
+        "heightPx": 140.8,
+        "scale": 0.2951,
+        "sourcePlateCoords": {
+          "footX": 992,
+          "footY": 730,
+          "topY": 547,
+          "heightPx": 184
+        },
+        "confidence": "medium-high",
+        "notes": "Bride+groom on heart chair = fara7_couple_heart_chair_idle. Top = chair gold trim 547, bottom = chair feet/gown hem 730. footX = chair centre (arms 877..1107); gown spills left to 850. Plate chair is ~10% wider per unit height than the sprite chair."
+      },
+      {
+        "key": "tabla",
+        "sheet": "tabla_player_playing",
+        "footX": 956.9,
+        "footY": 561.6,
+        "heightPx": 150.7,
+        "scale": 0.2927,
+        "sourcePlateCoords": {
+          "footX": 1250,
+          "footY": 734,
+          "topY": 538,
+          "heightPx": 197
+        },
+        "confidence": "medium",
+        "notes": "Seated with tabla = tabla_player_playing. Lower (downstage) shoe 734, other shoe 728.",
+        "standingEstimate": {
+          "heightPx": 198.3,
+          "method": "plate seated height 197px / 0.76 (anthropometric), then x sy",
+          "confidence": "low",
+          "scaleBySheet": {
+            "tabla_player_standing_idle": 0.3851,
+            "tabla_player_walkin": 0.3859,
+            "tabla_player_dizzy_love": 0.5303
+          }
+        },
+        "scaleBySheet": {
+          "tabla_player_playing": 0.2933
+        }
+      },
+      {
+        "key": "drums",
+        "sheet": "musician_drums_playing",
+        "footX": 1102.4,
+        "footY": 562.4,
+        "heightPx": 157.7,
+        "scale": 0.4493,
+        "sourcePlateCoords": {
+          "footX": 1440,
+          "footY": 735,
+          "topY": 544,
+          "heightPx": 192
+        },
+        "confidence": "medium",
+        "notes": "Seated at kit = musician_drums_playing. Feet hidden behind the kit; footY = kit base. footX = kit+drummer bbox centre (1335..1545) = the sheet's contentCenterX anchor; drummer's head is at 1462. Matched head-top-to-kit-base (sprite rows 24..350) because the sheet's content top is the raised sticks. Kit sits past the empty plate's deck right edge (1425): the populated plate painted carpet there and hid a pole; in the empty plate it is pavement.",
+        "standingEstimate": {
+          "heightPx": 193.3,
+          "method": "plate seated height 192px / 0.76 (anthropometric), then x sy",
+          "confidence": "low",
+          "scaleBySheet": {
+            "musician_drums_idle": 0.5224,
+            "musician_drums_walkin": 0.3753,
+            "musician_drums_love": 0.521
+          }
+        },
+        "scaleBySheet": {
+          "musician_drums_playing": 0.4493
+        }
+      },
+      {
+        "key": "crowd",
+        "sheet": "fara7_crowd_group_a..d",
+        "footX": null,
+        "footY": null,
+        "headTopY": 573.9,
+        "frontRowHeadTopY": 600.6,
+        "heightPx": null,
+        "scale": 0.7311,
+        "sourcePlateCoords": {
+          "headTopY_row2": [
+            745,
+            755
+          ],
+          "headTopY_front": [
+            780,
+            790
+          ],
+          "fezWidth": 86
+        },
+        "confidence": "low",
+        "notes": "Foreground crowd has no floor contact (cropped by frame). Scale from fez width (plate ~86px vs sprite ~90px). Plate crowd is a mixed men/women STANDING crowd with raised hands, ~14 heads in 2 rows; game crowd is 4 groups x 3 seated men. At this scale group_a is ~470px wide, so 4 groups overlap ~45% across 1280."
+      }
+    ]
+  },
+  "level2_theatre": {
+    "groundY": 454.2,
+    "groundYPlate": 593,
+    "performerLine": "trio + mic 595..596, Manos 593 - everyone on the front lip",
+    "surfaces": [
+      {
+        "name": "stage floor",
+        "yBack": 430.5,
+        "yFrontLip": 455.7,
+        "xAtLip": [
+          405.7,
+          863.5
+        ]
+      },
+      {
+        "name": "stage nosing + front face",
+        "y": [
+          456.5,
+          509.4
+        ],
+        "note": "no apron strip"
+      },
+      {
+        "name": "centre aisle (audience floor)",
+        "y": [
+          509.4,
+          720.0
+        ],
+        "xAtTop": [
+          589.5,
+          681.3
+        ]
+      }
+    ],
+    "actors": [
+      {
+        "key": "player",
+        "sheet": "idle",
+        "footX": 765.6,
+        "footY": 454.2,
+        "heightPx": 143.2,
+        "scale": 0.414,
+        "sourcePlateCoords": {
+          "footX": 1000,
+          "footY": 593,
+          "topY": 407,
+          "heightPx": 187
+        },
+        "confidence": "high",
+        "notes": "Manos stands ON the stage at the front lip (floor 562..595), stage-RIGHT of the trio. There is no apron strip in this plate: the stage nosing drops straight into the seating, so apronFootY has no counterpart. Plate added a mic stand in front of him (x962..990) that is not in the game."
+      },
+      {
+        "key": "theatreMic",
+        "sheet": "theatre_mic_3",
+        "footX": 543.5,
+        "footY": 456.5,
+        "heightPx": 140.3,
+        "scale": 0.3181,
+        "sourcePlateCoords": {
+          "footX": 710,
+          "footY": 596,
+          "topY": 400,
+          "heightPx": 197
+        },
+        "confidence": "high",
+        "notes": "Plate trio = theatre_mic_3 composite (green L, gold C at stand, red R arm raised). footX/footY = stand foot (MIC_ANCHOR 258,541). scale averages two matches: full composite 400..596 vs sprite 69..541, and gold 414..596 vs sprite 100..541 (agree within 0.6%). Engine form: displayContentHeight = scale x 441 = 140.3."
+      },
+      {
+        "key": "soprano_gold",
+        "sheet": "soprano_gold_idle",
+        "footX": 545.1,
+        "footY": 455.7,
+        "heightPx": 139.4,
+        "scale": 0.4276,
+        "sourcePlateCoords": {
+          "footX": 712,
+          "footY": 595,
+          "topY": 414,
+          "heightPx": 182
+        },
+        "confidence": "high",
+        "notes": "Only seen inside the mic composite; standing straight at the stand - the cleanest soprano height. footX is her body centre in the composite, not an idle mark (the plate has no pre-mic marks)."
+      },
+      {
+        "key": "soprano_red",
+        "sheet": "soprano_red_idle",
+        "footX": 585.6,
+        "footY": 455.7,
+        "heightPx": 145.5,
+        "scale": 0.4158,
+        "sourcePlateCoords": {
+          "footX": 765,
+          "footY": 595,
+          "topY": 406,
+          "heightPx": 190
+        },
+        "confidence": "high",
+        "notes": "Only seen inside the mic composite; bun top 406; ~4% taller than gold. footX is her body centre in the composite, not an idle mark (the plate has no pre-mic marks)."
+      },
+      {
+        "key": "soprano_green",
+        "sheet": "soprano_green_idle",
+        "footX": 501.4,
+        "footY": 455.7,
+        "heightPx": 139.4,
+        "scale": 0.3983,
+        "sourcePlateCoords": {
+          "footX": 655,
+          "footY": 595,
+          "topY": 430,
+          "heightPx": 166
+        },
+        "confidence": "medium",
+        "notes": "Only seen inside the mic composite; leaning into the mic - NOT a standing height; use gold value. footX is her body centre in the composite, not an idle mark (the plate has no pre-mic marks)."
+      }
+    ]
+  },
+  "level3_party": {
+    "groundY": 521.8,
+    "groundYPlate": 682,
+    "performerLine": "band 666 (upstage), trio 677, Manos 682",
+    "surfaces": [
+      {
+        "name": "deck top",
+        "yBack": 501.9,
+        "yFrontLip": 525.7,
+        "xAtLip": [
+          339.1,
+          888.0
+        ]
+      },
+      {
+        "name": "deck stone front face",
+        "y": [
+          526.4,
+          604.5
+        ]
+      },
+      {
+        "name": "paved terrace with tables (audience floor)",
+        "y": [
+          604.5,
+          720.0
+        ]
+      }
+    ],
+    "actors": [
+      {
+        "key": "player",
+        "sheet": "idle",
+        "footX": 585.6,
+        "footY": 521.8,
+        "heightPx": 176.0,
+        "scale": 0.5086,
+        "sourcePlateCoords": {
+          "footX": 765,
+          "footY": 682,
+          "topY": 453,
+          "heightPx": 230
+        },
+        "confidence": "high",
+        "notes": "Manos on the deck (656..687) near the front lip. Boots 720..755 / 784..811; hat centre 762."
+      },
+      {
+        "key": "accordion",
+        "sheet": "musician_accordion_playing",
+        "footX": 424.9,
+        "footY": 509.6,
+        "heightPx": 126.2,
+        "scale": 0.3597,
+        "sourcePlateCoords": {
+          "footX": 555,
+          "footY": 666,
+          "topY": 502,
+          "heightPx": 165
+        },
+        "confidence": "medium-low",
+        "notes": "Seated playing. Left foot hidden behind a floor wedge monitor that exists only in the populated plate; right shoe bottom ~666. Band sits upstage (y666) of Manos (682).",
+        "standingEstimate": {
+          "heightPx": 166.1,
+          "method": "plate seated height 165px / 0.76 (anthropometric), then x sy",
+          "confidence": "low",
+          "scaleBySheet": {
+            "musician_accordion_idle": 0.4454,
+            "musician_accordion_walkin": 0.3158,
+            "musician_accordion_love": 0.4454
+          }
+        },
+        "scaleBySheet": {
+          "musician_accordion_playing": 0.3597
+        }
+      },
+      {
+        "key": "keyboard",
+        "sheet": "musician_keyboard_idle",
+        "footX": 505.3,
+        "footY": 509.6,
+        "heightPx": 154.0,
+        "scale": 0.4163,
+        "sourcePlateCoords": {
+          "footX": 660,
+          "footY": 666,
+          "topY": 514,
+          "heightPx": 153
+        },
+        "confidence": "low (height derived); position medium",
+        "notes": "Seated at keyboard again; game playing sheet is standing. heightPx = standing estimate.",
+        "standingEstimate": {
+          "heightPx": 154.0,
+          "method": "plate seated height 153px / 0.76 (anthropometric), then x sy",
+          "confidence": "low",
+          "scaleBySheet": {
+            "musician_keyboard_idle": 0.4163,
+            "musician_keyboard_walkin": 0.2991,
+            "musician_keyboard_love": 0.4032,
+            "musician_keyboard_playing": 0.4426
+          }
+        }
+      },
+      {
+        "key": "partyMic",
+        "sheet": "theatre_mic_3",
+        "footX": 711.2,
+        "footY": 518.0,
+        "heightPx": 166.4,
+        "scale": 0.3774,
+        "sourcePlateCoords": {
+          "footX": 929,
+          "footY": 677,
+          "topY": 460,
+          "heightPx": 218
+        },
+        "confidence": "medium-high",
+        "notes": "Trio around the stand, but NOT the mic_3 pose: no raised arm. Scaled by gold only (460..677 vs sprite 100..541). Engine form: displayContentHeight = scale x 441 = 166.4."
+      },
+      {
+        "key": "soprano_gold",
+        "sheet": "soprano_gold_idle",
+        "footX": 708.1,
+        "footY": 518.0,
+        "heightPx": 166.8,
+        "scale": 0.5117,
+        "sourcePlateCoords": {
+          "footX": 925,
+          "footY": 677,
+          "topY": 460,
+          "heightPx": 218
+        },
+        "confidence": "high",
+        "notes": "Only seen inside the trio; standing at the stand."
+      },
+      {
+        "key": "soprano_red",
+        "sheet": "soprano_red_idle",
+        "footX": 754.1,
+        "footY": 518.0,
+        "heightPx": 166.0,
+        "scale": 0.4744,
+        "sourcePlateCoords": {
+          "footX": 985,
+          "footY": 677,
+          "topY": 461,
+          "heightPx": 217
+        },
+        "confidence": "high",
+        "notes": "Only seen inside the trio; standing."
+      },
+      {
+        "key": "soprano_green",
+        "sheet": "soprano_green_idle",
+        "footX": 664.5,
+        "footY": 518.0,
+        "heightPx": 166.8,
+        "scale": 0.4766,
+        "sourcePlateCoords": {
+          "footX": 868,
+          "footY": 677,
+          "topY": 476,
+          "heightPx": 202
+        },
+        "confidence": "medium",
+        "notes": "Only seen inside the trio; leaning in - use gold value."
+      },
+      {
+        "key": "tabla",
+        "sheet": "tabla_player_playing",
+        "footX": 803.8,
+        "footY": 509.6,
+        "heightPx": 121.7,
+        "scale": 0.2362,
+        "sourcePlateCoords": {
+          "footX": 1050,
+          "footY": 666,
+          "topY": 508,
+          "heightPx": 159
+        },
+        "confidence": "low",
+        "notes": "AMBIGUOUS: one seated percussionist with two small hand drums on stands - the tabla player and drummer merged (known generation FAIL). Mapped to tabla (hand-drum pose). Feet hidden behind a populated-only floor wedge; footY assumed = band line 666. He is stage-RIGHT of the sopranos; game puts tabla stage-left.",
+        "standingEstimate": {
+          "heightPx": 160.1,
+          "method": "plate seated height 159px / 0.76 (anthropometric), then x sy",
+          "confidence": "low",
+          "scaleBySheet": {
+            "tabla_player_standing_idle": 0.3108,
+            "tabla_player_walkin": 0.3114,
+            "tabla_player_dizzy_love": 0.428
+          }
+        },
+        "scaleBySheet": {
+          "tabla_player_playing": 0.2367
+        }
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@
   "sprites": {
     "walk": {"file":"assets/game/manos_walk.png","frameWidth":336,"frameHeight":376,"frames":8,"contentLeft":75,"contentTop":17,"contentWidth":193,"contentHeight":356,"contentCenterX":171,"contentCenterY":194},
     "idle": {"file":"assets/game/manos_idle.png","frameWidth":336,"frameHeight":376,"frames":4,"contentLeft":99,"contentTop":27,"contentWidth":142,"contentHeight":346,"contentCenterX":170,"contentCenterY":200},
-    "jump": {"file":"assets/game/manos_jump.png","frameWidth":414,"frameHeight":414,"frames":6,"contentLeft":97,"contentTop":8,"contentWidth":215,"contentHeight":403,"contentCenterX":204,"contentCenterY":209},
+    "jump": {"file":"assets/generated/characters/manos/jump/jump_spritesheet.png","frameWidth":419,"frameHeight":468,"frames":6,"contentLeft":75,"contentTop":10,"contentWidth":227,"contentHeight":446,"contentCenterX":188,"contentCenterY":232},
     "gesture_heart": {"file":"assets/game/manos_gesture_heart.png","frameWidth":405,"frameHeight":408,"frames":6,"contentLeft":101,"contentTop":19,"contentWidth":278,"contentHeight":386,"contentCenterX":240,"contentCenterY":212},
     "heart_icon": {"file":"assets/game/manos_heart_icon.png","frameWidth":48,"frameHeight":49,"frames":1},
     "gesture_flowers": {"file":"assets/game/manos_gesture_flowers.png","frameWidth":405,"frameHeight":408,"frames":6,"contentLeft":104,"contentTop":20,"contentWidth":276,"contentHeight":385,"contentCenterX":242,"contentCenterY":212},
@@ -50,18 +50,35 @@
     "audience_pink_woman_theatre_seated_idle": {"file":"assets/generated/characters/audience_pink_woman/audience_pink_woman_theatre_seated_idle_spritesheet.png","frameWidth":248,"frameHeight":529,"frames":8,"contentLeft":45,"contentTop":46,"contentWidth":159,"contentHeight":475,"contentCenterX":124,"contentCenterY":283},
     "audience_maroon_woman_theatre_seated_idle": {"file":"assets/generated/characters/audience_maroon_woman/audience_maroon_woman_theatre_seated_idle_spritesheet.png","frameWidth":248,"frameHeight":536,"frames":8,"contentLeft":42,"contentTop":49,"contentWidth":170,"contentHeight":479,"contentCenterX":126,"contentCenterY":288},
     "audience_teal_woman_theatre_seated_idle": {"file":"assets/generated/characters/audience_teal_woman/audience_teal_woman_theatre_seated_idle_spritesheet.png","frameWidth":248,"frameHeight":536,"frames":8,"contentLeft":43,"contentTop":41,"contentWidth":162,"contentHeight":477,"contentCenterX":124,"contentCenterY":279},
-    "level2_theatre_bg": {"file":"assets/generated/environments/level2_theatre/lighting_effects/level2_theatre_bg_spritesheet.png","frameWidth":700,"frameHeight":390,"frames":12,"contentLeft":0,"contentTop":0,"contentWidth":700,"contentHeight":390,"contentCenterX":350,"contentCenterY":194},
+    "level2_theatre_bg": {
+      "files": [
+        "assets/game/environments/level2_theatre/frame_00.png",
+        "assets/game/environments/level2_theatre/frame_01.png",
+        "assets/game/environments/level2_theatre/frame_02.png",
+        "assets/game/environments/level2_theatre/frame_03.png",
+        "assets/game/environments/level2_theatre/frame_04.png",
+        "assets/game/environments/level2_theatre/frame_05.png",
+        "assets/game/environments/level2_theatre/frame_06.png",
+        "assets/game/environments/level2_theatre/frame_07.png"
+      ],
+      "frameWidth": 1280,
+      "frameHeight": 720,
+      "frames": 8
+    },
     "level3_party_bg": {
-      "file": "assets/generated/environments/level3_party/lighting_effects/level3_party_bg_spritesheet.png",
-      "frameWidth": 700,
-      "frameHeight": 393,
-      "frames": 12,
-      "contentLeft": 0,
-      "contentTop": 0,
-      "contentWidth": 700,
-      "contentHeight": 393,
-      "contentCenterX": 350,
-      "contentCenterY": 196
+      "files": [
+        "assets/game/environments/level3_party/frame_00.png",
+        "assets/game/environments/level3_party/frame_01.png",
+        "assets/game/environments/level3_party/frame_02.png",
+        "assets/game/environments/level3_party/frame_03.png",
+        "assets/game/environments/level3_party/frame_04.png",
+        "assets/game/environments/level3_party/frame_05.png",
+        "assets/game/environments/level3_party/frame_06.png",
+        "assets/game/environments/level3_party/frame_07.png"
+      ],
+      "frameWidth": 1280,
+      "frameHeight": 720,
+      "frames": 8
     },
     "tabla_player_standing_idle": {
       "file": "assets/generated/characters/tabla_player/tabla_player_standing_idle_spritesheet.png",
@@ -507,30 +524,270 @@
       "contentCenterX": 275,
       "contentCenterY": 304
     },
-    "level3_party_bg_prelit": {
-      "file": "assets/generated/environments/level3_party/lighting_effects/level3_party_bg_prelit_spritesheet.png",
-      "frameWidth": 700,
-      "frameHeight": 393,
-      "frames": 12,
-      "contentLeft": 0,
-      "contentTop": 0,
-      "contentWidth": 700,
-      "contentHeight": 393,
-      "contentCenterX": 350,
-      "contentCenterY": 196
-    },
     "level1_fara7_bg": {
-      "file": "assets/generated/environments/level1_fara7/lighting_effects/level1_fara7_bg_spritesheet.png",
-      "frameWidth": 1000,
-      "frameHeight": 563,
-      "frames": 16,
-      "contentLeft": 0,
-      "contentTop": 0,
-      "contentWidth": 1000,
-      "contentHeight": 563,
-      "contentCenterX": 500,
-      "contentCenterY": 281
-    }
+      "files": [
+        "assets/game/environments/level1_fara7/frame_00.png",
+        "assets/game/environments/level1_fara7/frame_01.png",
+        "assets/game/environments/level1_fara7/frame_02.png",
+        "assets/game/environments/level1_fara7/frame_03.png",
+        "assets/game/environments/level1_fara7/frame_04.png",
+        "assets/game/environments/level1_fara7/frame_05.png",
+        "assets/game/environments/level1_fara7/frame_06.png",
+        "assets/game/environments/level1_fara7/frame_07.png"
+      ],
+      "frameWidth": 1280,
+      "frameHeight": 720,
+      "frames": 8
+    },
+    "singing_fara7": {"file":"assets/generated/characters/manos/singing_fara7/singing_fara7_spritesheet.png","frameWidth":419,"frameHeight":468,"frames":8,"contentLeft":60,"contentTop":7,"contentWidth":346,"contentHeight":457,"contentCenterX":232,"contentCenterY":235},
+    "singing_theatre": {"file":"assets/generated/characters/manos/singing_theatre/singing_theatre_spritesheet.png","frameWidth":419,"frameHeight":469,"frames":8,"contentLeft":101,"contentTop":8,"contentWidth":265,"contentHeight":451,"contentCenterX":233,"contentCenterY":233},
+    "singing_party": {"file":"assets/generated/characters/manos/singing_party/singing_party_spritesheet.png","frameWidth":419,"frameHeight":469,"frames":8,"contentLeft":82,"contentTop":9,"contentWidth":288,"contentHeight":450,"contentCenterX":226,"contentCenterY":234},
+    "idle_fara7": {"file":"assets/generated/characters/manos/idle_fara7/idle_fara7_spritesheet.png","frameWidth":505,"frameHeight":779,"frames":4,"contentLeft":71,"contentTop":48,"contentWidth":358,"contentHeight":666,"contentCenterX":250,"contentCenterY":380},
+    "idle_theatre": {"file":"assets/generated/characters/manos/idle_theatre/idle_theatre_spritesheet.png","frameWidth":513,"frameHeight":765,"frames":4,"contentLeft":66,"contentTop":47,"contentWidth":386,"contentHeight":670,"contentCenterX":258,"contentCenterY":382},
+    "idle_party": {"file":"assets/generated/characters/manos/idle_party/idle_party_spritesheet.png","frameWidth":514,"frameHeight":765,"frames":4,"contentLeft":57,"contentTop":33,"contentWidth":400,"contentHeight":703,"contentCenterX":256,"contentCenterY":384},
+    "dizzy_death": {"file":"assets/generated/characters/manos/dizzy_death/dizzy_death_spritesheet.png","frameWidth":439,"frameHeight":467,"frames":8,"contentLeft":8,"contentTop":8,"contentWidth":423,"contentHeight":456,"contentCenterX":219,"contentCenterY":236}
   },
-  "level1": {"groundY": 632, "panelW": 1376, "panelH": 768, "playerScale": 0.806, "spawnX": 386, "kiosk": {"panelIndex": 9, "stopLocalX": 550, "notBeforeSeconds": 47}, "panelsRightToLeft": ["level1_panel_1_shops.jpg", "level1_panel_2_kiosk.jpg"]}
+  "level1": {"groundY": 632, "panelW": 1376, "panelH": 768, "playerScale": 0.6745, "spawnX": 386, "kiosk": {"panelIndex": 9, "stopLocalX": 550, "notBeforeSeconds": 47}, "panelsRightToLeft": ["level1_panel_1_shops.jpg", "level1_panel_2_kiosk.jpg"]},
+
+  "playerVisuals": {
+    "alphaThresholdExclusive": 8,
+    "rootXNormalized": 0.5,
+    "rootYIsExclusiveSourcePixel": true,
+    "visuals": {
+      "idle": {
+        "sha256": "0722a50c4c9edeb4921342eb436e1c49b6be09a971bbc6ee581b4ae63b2c2425",
+        "bodyReferenceHeight": 343,
+        "frameRootY": [
+          373,
+          373,
+          373,
+          373
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "walk": {
+        "sha256": "1c29467186e9d9dd9c2b670a30848ca9c8a469363894e7b2e10dbc7a142682a1",
+        "bodyReferenceHeight": 351,
+        "frameRootY": [
+          373,
+          373,
+          373,
+          373,
+          373,
+          373,
+          373,
+          373
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "gesture_heart": {
+        "sha256": "ea1b579cf54da20200d06dab19934651242230ea870fad70d0742b3619f203c6",
+        "bodyReferenceHeight": 384,
+        "frameRootY": [
+          405,
+          405,
+          405,
+          405,
+          405,
+          405
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "gesture_flowers": {
+        "sha256": "56deba82e388ccd5919dd265ef8f7605487fbdcd23eced2c14be14c462a82293",
+        "bodyReferenceHeight": 385,
+        "frameRootY": [
+          405,
+          405,
+          405,
+          405,
+          405,
+          405
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "manos_stage_singing": {
+        "sha256": "2b098a680e5a6c4b1adf149b5151878a635885979ec7b1f0f73c91a8cbcbbb2b",
+        "bodyReferenceHeight": 321,
+        "frameRootY": [
+          341,
+          341,
+          341,
+          341,
+          341,
+          341,
+          341,
+          341
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "phone_pull": {
+        "sha256": "dfb2e7efa93895958348c659082c0a1b0de2441645628d5324278399a79b42c6",
+        "bodyReferenceHeight": 349,
+        "frameRootY": [
+          373,
+          373,
+          373,
+          373,
+          373,
+          373,
+          373,
+          373
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "phone_read": {
+        "sha256": "df6e290631e61e6c3dec27c77a52155b4e3c16c1fe8d87e5301f59374b328ea1",
+        "bodyReferenceHeight": 350,
+        "frameRootY": [
+          373,
+          373,
+          373,
+          373,
+          373,
+          373,
+          373,
+          373
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "phone_check_idle": {
+        "sha256": "5706aa2810cb9da953ccd2ac6233f3f5e4ff559e11f8322af6906bf8ac4f5503",
+        "bodyReferenceHeight": 347,
+        "frameRootY": [
+          373,
+          373,
+          373,
+          373,
+          373,
+          373,
+          372,
+          373
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "dizzy_love": {
+        "sha256": "dc1cf27b0a22c66def8d09fc61269277d009bd8c891366d4f74247f13da2e76f",
+        "bodyReferenceHeight": 374,
+        "frameRootY": [
+          379,
+          379,
+          379,
+          379,
+          382,
+          382,
+          382,
+          382
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "singing_fara7": {
+        "sha256": "80796eeaa7376b489a7d26580f876c63a90bdd9c4ff2c1708282c4905afda9a8",
+        "bodyReferenceHeight": 405,
+        "frameRootY": [
+          463,
+          464,
+          463,
+          463,
+          443,
+          443,
+          443,
+          443
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "singing_theatre": {
+        "sha256": "f9353ed92b68fdc1c59d108dec370827e49a5ad5e2835fdd6b7ef2f798dcc230",
+        "bodyReferenceHeight": 416,
+        "frameRootY": [
+          454,
+          454,
+          454,
+          454,
+          441,
+          441,
+          441,
+          441
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "singing_party": {
+        "sha256": "99976608fb0280057f89cbccc52dce3b987779bd9047f2e9172aebc048692471",
+        "bodyReferenceHeight": 427,
+        "frameRootY": [
+          459,
+          458,
+          459,
+          458,
+          448,
+          450,
+          450,
+          448
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "idle_fara7": {
+        "sha256": "30a065c14926f553a82a1d59134cb6a34d7f13a7b0c358d803aeae6c38c62f22",
+        "bodyReferenceHeight": 660,
+        "frameRootY": [
+          714,
+          714,
+          714,
+          714
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "idle_theatre": {
+        "sha256": "b11198b1b773473c3fe0019cd9d2c9e87c45d90563abd8928c0aa1632f596b33",
+        "bodyReferenceHeight": 668,
+        "frameRootY": [
+          716,
+          717,
+          717,
+          716
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "idle_party": {
+        "sha256": "5a2b6d1e8a2f3ebcfe402bfe1282bbd1bf60aefefc85ee7301c624f7b40ab182",
+        "bodyReferenceHeight": 700,
+        "frameRootY": [
+          736,
+          735,
+          735,
+          735
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "jump": {
+        "sha256": "146587abbba14d9586ae0be384dc9c9503fe108b48fc80795e78b8f443c341ca",
+        "bodyReferenceHeight": 436,
+        "frameRootY": [
+          456,
+          456,
+          456,
+          456,
+          456,
+          456
+        ],
+        "rootPolicy": "fixedLaunchContact"
+      },
+      "dizzy_death": {
+        "sha256": "07f0ee7a6b2fba802b176d136e76bebf6ff515a0e09122fcb710ae1f9b5c024a",
+        "bodyReferenceHeight": 456,
+        "frameRootY": [
+          464,
+          464,
+          464,
+          464,
+          459,
+          459,
+          459,
+          459
+        ],
+        "rootPolicy": "poseGroupContact"
+      }
+    }
+  }
+
 }
