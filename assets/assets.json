@@ -2,15 +2,15 @@
   "sprites": {
     "walk": {
       "file": "assets/generated/characters/manos/walk/walk_spritesheet.png",
-      "frameWidth": 344,
-      "frameHeight": 384,
+      "frameWidth": 418,
+      "frameHeight": 470,
       "frames": 8,
-      "contentLeft": 115,
-      "contentTop": 39,
-      "contentWidth": 131,
-      "contentHeight": 342,
-      "contentCenterX": 180,
-      "contentCenterY": 210
+      "contentLeft": 78,
+      "contentTop": 17,
+      "contentWidth": 274,
+      "contentHeight": 438,
+      "contentCenterX": 215,
+      "contentCenterY": 236
     },
     "jump": {
       "file": "assets/generated/characters/manos/jump/jump_spritesheet.png",
@@ -62,39 +62,39 @@
     },
     "phone_pull": {
       "file": "assets/generated/characters/manos/phone_pull/phone_pull_spritesheet.png",
-      "frameWidth": 344,
-      "frameHeight": 384,
+      "frameWidth": 419,
+      "frameHeight": 468,
       "frames": 8,
-      "contentLeft": 11,
+      "contentLeft": 19,
       "contentTop": 6,
-      "contentWidth": 310,
-      "contentHeight": 375,
-      "contentCenterX": 166,
-      "contentCenterY": 193
+      "contentWidth": 367,
+      "contentHeight": 455,
+      "contentCenterX": 202,
+      "contentCenterY": 233
     },
     "phone_read": {
-      "file": "assets/game/manos_phone_read.png",
-      "frameWidth": 336,
-      "frameHeight": 376,
+      "file": "assets/generated/characters/manos/phone_read/phone_read_spritesheet.png",
+      "frameWidth": 419,
+      "frameHeight": 468,
       "frames": 8,
-      "contentLeft": 75,
-      "contentTop": 17,
-      "contentWidth": 204,
-      "contentHeight": 356,
-      "contentCenterX": 176,
-      "contentCenterY": 194
+      "contentLeft": 63,
+      "contentTop": 18,
+      "contentWidth": 280,
+      "contentHeight": 438,
+      "contentCenterX": 203,
+      "contentCenterY": 237
     },
     "phone_check_idle": {
       "file": "assets/generated/characters/manos/phone_check_idle/phone_check_idle_spritesheet.png",
-      "frameWidth": 336,
-      "frameHeight": 376,
+      "frameWidth": 419,
+      "frameHeight": 468,
       "frames": 8,
-      "contentLeft": 99,
-      "contentTop": 25,
-      "contentWidth": 180,
-      "contentHeight": 348,
-      "contentCenterX": 188,
-      "contentCenterY": 198
+      "contentLeft": 88,
+      "contentTop": 18,
+      "contentWidth": 216,
+      "contentHeight": 430,
+      "contentCenterX": 196,
+      "contentCenterY": 233
     },
     "fara7_couple_heart_chair_idle": {
       "file": "assets/generated/characters/fara7_couple/heart_chair_idle/fara7_couple_heart_chair_idle_spritesheet.png",
@@ -1058,72 +1058,72 @@
       "frameWidth": 419,
       "frameHeight": 468,
       "frames": 8,
-      "contentLeft": 60,
-      "contentTop": 7,
-      "contentWidth": 346,
-      "contentHeight": 457,
-      "contentCenterX": 232,
-      "contentCenterY": 235
+      "contentLeft": 56,
+      "contentTop": 8,
+      "contentWidth": 341,
+      "contentHeight": 447,
+      "contentCenterX": 226,
+      "contentCenterY": 231
     },
     "singing_theatre": {
       "file": "assets/generated/characters/manos/singing_theatre/singing_theatre_spritesheet.png",
       "frameWidth": 419,
-      "frameHeight": 469,
+      "frameHeight": 468,
       "frames": 8,
-      "contentLeft": 101,
-      "contentTop": 8,
-      "contentWidth": 265,
-      "contentHeight": 451,
-      "contentCenterX": 233,
-      "contentCenterY": 233
+      "contentLeft": 82,
+      "contentTop": 9,
+      "contentWidth": 301,
+      "contentHeight": 442,
+      "contentCenterX": 232,
+      "contentCenterY": 230
     },
     "singing_party": {
       "file": "assets/generated/characters/manos/singing_party/singing_party_spritesheet.png",
       "frameWidth": 419,
-      "frameHeight": 469,
+      "frameHeight": 468,
       "frames": 8,
-      "contentLeft": 82,
-      "contentTop": 9,
-      "contentWidth": 288,
-      "contentHeight": 450,
-      "contentCenterX": 226,
-      "contentCenterY": 234
+      "contentLeft": 96,
+      "contentTop": 8,
+      "contentWidth": 283,
+      "contentHeight": 446,
+      "contentCenterX": 237,
+      "contentCenterY": 231
     },
     "idle_fara7": {
       "file": "assets/generated/characters/manos/idle_fara7/idle_fara7_spritesheet.png",
-      "frameWidth": 505,
-      "frameHeight": 779,
+      "frameWidth": 543,
+      "frameHeight": 724,
       "frames": 4,
-      "contentLeft": 71,
-      "contentTop": 48,
-      "contentWidth": 358,
-      "contentHeight": 666,
-      "contentCenterX": 250,
-      "contentCenterY": 380
+      "contentLeft": 95,
+      "contentTop": 25,
+      "contentWidth": 335,
+      "contentHeight": 669,
+      "contentCenterX": 262,
+      "contentCenterY": 359
     },
     "idle_theatre": {
       "file": "assets/generated/characters/manos/idle_theatre/idle_theatre_spritesheet.png",
-      "frameWidth": 513,
-      "frameHeight": 765,
+      "frameWidth": 542,
+      "frameHeight": 724,
       "frames": 4,
-      "contentLeft": 66,
-      "contentTop": 47,
-      "contentWidth": 386,
-      "contentHeight": 670,
-      "contentCenterX": 258,
-      "contentCenterY": 382
+      "contentLeft": 121,
+      "contentTop": 40,
+      "contentWidth": 291,
+      "contentHeight": 663,
+      "contentCenterX": 266,
+      "contentCenterY": 371
     },
     "idle_party": {
       "file": "assets/generated/characters/manos/idle_party/idle_party_spritesheet.png",
-      "frameWidth": 514,
-      "frameHeight": 765,
+      "frameWidth": 543,
+      "frameHeight": 724,
       "frames": 4,
-      "contentLeft": 57,
-      "contentTop": 33,
-      "contentWidth": 400,
-      "contentHeight": 703,
-      "contentCenterX": 256,
-      "contentCenterY": 384
+      "contentLeft": 104,
+      "contentTop": 28,
+      "contentWidth": 326,
+      "contentHeight": 669,
+      "contentCenterX": 267,
+      "contentCenterY": 362
     },
     "dizzy_death": {
       "file": "assets/generated/characters/manos/dizzy_death/dizzy_death_spritesheet.png",
@@ -1136,6 +1136,42 @@
       "contentHeight": 456,
       "contentCenterX": 219,
       "contentCenterY": 236
+    },
+    "dizzy_hit": {
+      "file": "assets/generated/characters/manos/dizzy_hit/dizzy_hit_spritesheet.png",
+      "frameWidth": 419,
+      "frameHeight": 468,
+      "frames": 8,
+      "contentLeft": 39,
+      "contentTop": 18,
+      "contentWidth": 330,
+      "contentHeight": 433,
+      "contentCenterX": 204,
+      "contentCenterY": 234
+    },
+    "dizzy_singing": {
+      "file": "assets/generated/characters/manos/dizzy_singing/dizzy_singing_spritesheet.png",
+      "frameWidth": 419,
+      "frameHeight": 468,
+      "frames": 8,
+      "contentLeft": 75,
+      "contentTop": 21,
+      "contentWidth": 302,
+      "contentHeight": 442,
+      "contentCenterX": 226,
+      "contentCenterY": 242
+    },
+    "floor_singing": {
+      "file": "assets/generated/characters/manos/floor_singing/floor_singing_spritesheet.png",
+      "frameWidth": 419,
+      "frameHeight": 468,
+      "frames": 8,
+      "contentLeft": 3,
+      "contentTop": 186,
+      "contentWidth": 413,
+      "contentHeight": 238,
+      "contentCenterX": 209,
+      "contentCenterY": 305
     }
   },
   "level1": {
@@ -1160,17 +1196,17 @@
     "rootYIsExclusiveSourcePixel": true,
     "visuals": {
       "walk": {
-        "sha256": "7e7567ea8ab9fe237b297c72f5e39e30f1f686acd3b7884feb885ac52b25b2c9",
-        "bodyReferenceHeight": 337,
+        "sha256": "88e9774c7790bf861ad23f4e8acdbaf1fe46bbe169d361ea2cc2bc97c011b398",
+        "bodyReferenceHeight": 435,
         "frameRootY": [
-          381,
-          381,
-          381,
-          381,
-          381,
-          381,
-          381,
-          381
+          453,
+          454,
+          455,
+          448,
+          454,
+          451,
+          451,
+          453
         ],
         "rootPolicy": "perFrameGroundContact"
       },
@@ -1201,47 +1237,47 @@
         "rootPolicy": "perFrameGroundContact"
       },
       "phone_pull": {
-        "sha256": "84911e6f3f5df5119d544602f3c159b589eb35606affdc93d146de7acdd1bd3d",
-        "bodyReferenceHeight": 374,
+        "sha256": "9cbc5965280bfd455cd52516cc27a15aafde7b1b13bd9e9376924146dd135900",
+        "bodyReferenceHeight": 449,
         "frameRootY": [
-          381,
-          381,
-          381,
-          381,
-          381,
-          381,
-          381,
-          381
+          460,
+          460,
+          460,
+          461,
+          454,
+          455,
+          455,
+          454
         ],
         "rootPolicy": "perFrameGroundContact"
       },
       "phone_read": {
-        "sha256": "df6e290631e61e6c3dec27c77a52155b4e3c16c1fe8d87e5301f59374b328ea1",
-        "bodyReferenceHeight": 350,
+        "sha256": "6d6e0eb5c22e5c1d1fb15b678ce5288b13258d8dbf5e17a5ad7780590b7a1413",
+        "bodyReferenceHeight": 430,
         "frameRootY": [
-          373,
-          373,
-          373,
-          373,
-          373,
-          373,
-          373,
-          373
+          456,
+          456,
+          456,
+          455,
+          441,
+          446,
+          441,
+          446
         ],
         "rootPolicy": "perFrameGroundContact"
       },
       "phone_check_idle": {
-        "sha256": "5706aa2810cb9da953ccd2ac6233f3f5e4ff559e11f8322af6906bf8ac4f5503",
-        "bodyReferenceHeight": 347,
+        "sha256": "58b695dfec5e30720cbc687221a4e89ff0e055d5a812f570fbcac9a87f8153d5",
+        "bodyReferenceHeight": 419,
         "frameRootY": [
-          373,
-          373,
-          373,
-          373,
-          373,
-          373,
-          372,
-          373
+          448,
+          448,
+          448,
+          448,
+          437,
+          437,
+          437,
+          437
         ],
         "rootPolicy": "perFrameGroundContact"
       },
@@ -1261,13 +1297,43 @@
         "rootPolicy": "perFrameGroundContact"
       },
       "singing_fara7": {
-        "sha256": "80796eeaa7376b489a7d26580f876c63a90bdd9c4ff2c1708282c4905afda9a8",
-        "bodyReferenceHeight": 405,
+        "sha256": "45fa6e2d73d3b39d76fddee35c5ddcd2e9133f1fc6f0c38faf523bab4e19caab",
+        "bodyReferenceHeight": 414,
         "frameRootY": [
-          463,
-          464,
-          463,
-          463,
+          454,
+          454,
+          454,
+          455,
+          440,
+          440,
+          440,
+          440
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "singing_theatre": {
+        "sha256": "ecd7eb1f11a815380f7b6bdb7b65d292c43a46a2aa7d844a57b2dd260a85d6af",
+        "bodyReferenceHeight": 431,
+        "frameRootY": [
+          451,
+          451,
+          451,
+          451,
+          439,
+          439,
+          439,
+          439
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "singing_party": {
+        "sha256": "03fac9cf168068ef450733c8d1b37a2d25b66b5734db0027d5248307c28dc9f2",
+        "bodyReferenceHeight": 432,
+        "frameRootY": [
+          454,
+          454,
+          454,
+          454,
           443,
           443,
           443,
@@ -1275,66 +1341,36 @@
         ],
         "rootPolicy": "perFrameGroundContact"
       },
-      "singing_theatre": {
-        "sha256": "f9353ed92b68fdc1c59d108dec370827e49a5ad5e2835fdd6b7ef2f798dcc230",
-        "bodyReferenceHeight": 416,
-        "frameRootY": [
-          454,
-          454,
-          454,
-          454,
-          441,
-          441,
-          441,
-          441
-        ],
-        "rootPolicy": "perFrameGroundContact"
-      },
-      "singing_party": {
-        "sha256": "99976608fb0280057f89cbccc52dce3b987779bd9047f2e9172aebc048692471",
-        "bodyReferenceHeight": 427,
-        "frameRootY": [
-          459,
-          458,
-          459,
-          458,
-          448,
-          450,
-          450,
-          448
-        ],
-        "rootPolicy": "perFrameGroundContact"
-      },
       "idle_fara7": {
-        "sha256": "30a065c14926f553a82a1d59134cb6a34d7f13a7b0c358d803aeae6c38c62f22",
-        "bodyReferenceHeight": 660,
+        "sha256": "31259683e5baf67821c257ada68eecf95d314a45768e2b95c1ee672c1b43775b",
+        "bodyReferenceHeight": 664,
         "frameRootY": [
-          714,
-          714,
-          714,
-          714
+          693,
+          693,
+          694,
+          693
         ],
         "rootPolicy": "perFrameGroundContact"
       },
       "idle_theatre": {
-        "sha256": "b11198b1b773473c3fe0019cd9d2c9e87c45d90563abd8928c0aa1632f596b33",
-        "bodyReferenceHeight": 668,
+        "sha256": "0629b85d06b8fbf72da8f1c9f9e6ce972b36d5c5ab15b9d7bd109da5f421a6ae",
+        "bodyReferenceHeight": 660,
         "frameRootY": [
-          716,
-          717,
-          717,
-          716
+          701,
+          701,
+          703,
+          701
         ],
         "rootPolicy": "perFrameGroundContact"
       },
       "idle_party": {
-        "sha256": "5a2b6d1e8a2f3ebcfe402bfe1282bbd1bf60aefefc85ee7301c624f7b40ab182",
-        "bodyReferenceHeight": 700,
+        "sha256": "d548d46f735e5565386cb2421731009289855c286975a3778ada270f8aef9429",
+        "bodyReferenceHeight": 662,
         "frameRootY": [
-          736,
-          735,
-          735,
-          735
+          697,
+          697,
+          697,
+          697
         ],
         "rootPolicy": "perFrameGroundContact"
       },
@@ -1365,6 +1401,51 @@
           459
         ],
         "rootPolicy": "poseGroupContact"
+      },
+      "dizzy_hit": {
+        "sha256": "bc8218bbe52c485d0281347873ed45111bc6546a2c4284726779039577133e3a",
+        "bodyReferenceHeight": 407,
+        "frameRootY": [
+          449,
+          449,
+          451,
+          449,
+          433,
+          433,
+          433,
+          433
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "dizzy_singing": {
+        "sha256": "00b1e8eb9012ecddb8b6a12b7a6c9f96fcffe2033d9ff4d720ff43d47ee15cbc",
+        "bodyReferenceHeight": 426,
+        "frameRootY": [
+          463,
+          463,
+          463,
+          463,
+          450,
+          450,
+          450,
+          450
+        ],
+        "rootPolicy": "perFrameGroundContact"
+      },
+      "floor_singing": {
+        "sha256": "e9f572ca82ea080663715e38e1809fda01e1f0bf718c995ac5a418ef5ccb03a8",
+        "bodyReferenceHeight": 456,
+        "frameRootY": [
+          423,
+          423,
+          424,
+          422,
+          351,
+          351,
+          351,
+          350
+        ],
+        "rootPolicy": "floorContact"
       }
     }
   }

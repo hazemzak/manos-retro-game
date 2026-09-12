@@ -103,6 +103,18 @@ const PLAYER_DEATH_ANIM_GROUP = {
   repeat: 0,
   sheets: { dizzy_death: 'dizzyDeathAnim' },
 };
+// Boss-kiss sequence (docs/LEVEL3_BOSS_SEQUENCE_SPEC.md): the hit reaction is a one-shot whose
+// animationcomplete drives the next state; the two singing states loop until something cuts them.
+const PLAYER_BOSS_HIT_ANIM_GROUP = {
+  frameRate: 8,
+  repeat: 0,
+  sheets: { dizzy_hit: 'dizzyHitAnim' },
+};
+const PLAYER_BOSS_SINGING_ANIM_GROUP = {
+  frameRate: 8,
+  repeat: -1,
+  sheets: { dizzy_singing: 'dizzySingingAnim', floor_singing: 'floorSingingAnim' },
+};
 const PLAYER_LEVEL_REFERENCE_HEIGHTS = Object.freeze({
   fara7: 233.4,
   theatre: 143.2,
@@ -128,35 +140,21 @@ const PLAYER_VISUALS = Object.freeze({
   phone_check_idle: Object.freeze({ textureKey: 'phone_check_idle', animationKey: 'phoneCheckIdleAnim' }),
   dizzy_love: Object.freeze({ textureKey: 'dizzy_love', animationKey: 'dizzyLoveAnim' }),
   dizzy_death: Object.freeze({ textureKey: 'dizzy_death', animationKey: 'dizzyDeathAnim' }),
-  // --- Package G boss-kiss sequence stand-ins (docs/LEVEL3_BOSS_SEQUENCE_SPEC.md) --------
-  // None of these three sheets exist yet. Each state reads from exactly this one entry, so
-  // pointing it at the real generated sheet later (new textureKey/animationKey, registered
-  // and anims.create()'d the same way every other PLAYER_VISUALS entry is) is a one-line
-  // change confined to this block -- no other code in the boss-kiss sequence below needs to
-  // change.
-  // State 3 -- the moment the kiss lands ("Manos goes dizzy"). Stand-in: the retained old
-  // dizzy_love loop. Real art: spec sheet #1, "Dizzy (hit reaction)" (front view).
-  dizzy_hit: Object.freeze({ textureKey: 'dizzy_love', animationKey: 'dizzyLoveAnim' }),
-  // State 4 -- dizzy-in-love AND singing at once, not a separate stunned pause. Stand-in:
-  // same dizzy_love loop (playPlayerVisual's ignoreIfPlaying keeps this a seamless no-op
-  // transition from state 3 today; once real art gives this its own animationKey the swap
-  // between the two states will animate properly on its own). Real art: spec sheet #2,
-  // "Dizzy-in-love AND singing" (front view).
-  dizzy_singing: Object.freeze({ textureKey: 'dizzy_love', animationKey: 'dizzyLoveAnim' }),
-  // State 6 -- singing on the floor, continuing from the death's final pose. Stand-in: this
-  // entry's texture/anim are only used to look up dizzy_death's frame count in
-  // startFloorSinging() below, which freezes on its last frame rather than playing it (the
-  // death anim already ran once to get there) -- see that method's comment for the one-line
-  // swap once a real looping floor-singing anim exists. Real art: spec sheet #3, "Singing on
-  // the floor" (side view), built from the death guide's own frame 8 so the cut doesn't pop.
-  floor_singing: Object.freeze({ textureKey: 'dizzy_death', animationKey: 'dizzyDeathAnim' }),
+  // --- Package G boss-kiss sequence (docs/LEVEL3_BOSS_SEQUENCE_SPEC.md) -----------------
+  // State 3 -- the kiss lands: one-shot stagger that recovers to standing on its last frame.
+  dizzy_hit: Object.freeze({ textureKey: 'dizzy_hit', animationKey: 'dizzyHitAnim' }),
+  // State 4 -- dizzy-in-love and singing at once (loop, ended by BOSS_KISS_SINGING_HOLD_MS).
+  dizzy_singing: Object.freeze({ textureKey: 'dizzy_singing', animationKey: 'dizzySingingAnim' }),
+  // State 6 -- singing on the floor after the collapse (loop). Its scale is pinned to
+  // dizzy_death's in assets.json so the death -> floor cut keeps the same body size.
+  floor_singing: Object.freeze({ textureKey: 'floor_singing', animationKey: 'floorSingingAnim' }),
 });
-// Boss-kiss sequence timing (docs/LEVEL3_BOSS_SEQUENCE_SPEC.md). Both holds are placeholders
-// standing in for a real animationcomplete-driven transition: dizzy_hit and dizzy_singing
-// currently share one looping stand-in sheet with no natural end, so there is nothing else to
-// time the state change off yet.
-const BOSS_KISS_DIZZY_HOLD_MS = 1200;
+// Boss-kiss sequence timing (docs/LEVEL3_BOSS_SEQUENCE_SPEC.md). dizzy_hit is a one-shot and
+// hands off on its own animationcomplete; dizzy_singing is a loop with no natural end, so this
+// hold is what times the collapse.
 const BOSS_KISS_SINGING_HOLD_MS = 3000;
+// dizzy_hit is 8 frames at 8fps (~1.0s), so this only fires if its animationcomplete never does.
+const BOSS_KISS_HIT_FALLBACK_MS = 1500;
 // "From her forehead" (spec), as a fraction of her measured content height above her foot
 // line. No measured forehead anchor exists -- her attack art is still ungenerated -- so this
 // is a stand-in approximation, not a plate mark.
@@ -332,10 +330,11 @@ const CREDITS_SCROLL_DURATION_MS = 16000;
 // the mic all stand on the stage floor's front lip (stage floor x 405.7..863.5 at the lip).
 // The shared target-guided projectile flight still reaches the cast from there.
 const THEATRE = {
-  // The sopranos' foot line: the stage floor's front lip (plate row 595).
-  stageFootY: 455.7,
-  // The mic stand's foot (MIC_ANCHOR's frame point) on the plate: row 596.
-  micFootY: 456.5,
+  // The sopranos' foot line: P4's measured safe performer foot line (deck front edge y=457,
+  // audience heads from y=456; theatre_geometry_2026-09-12.md).
+  stageFootY: 454.0,
+  // The mic stand's foot (MIC_ANCHOR's frame point): same P4 safe foot line.
+  micFootY: 454.0,
   // Manos's ground line (plate row 593) and the ground collider's top edge. Name kept
   // from the old apron strip, which the new plate does not have.
   apronFootY: 454.2,
@@ -548,6 +547,8 @@ const ALL_ANIM_GROUPS = [
   PLAYER_IDLE_ANIM_GROUP,
   PLAYER_SINGING_ANIM_GROUP,
   PLAYER_DEATH_ANIM_GROUP,
+  PLAYER_BOSS_HIT_ANIM_GROUP,
+  PLAYER_BOSS_SINGING_ANIM_GROUP,
   ...Object.values(KEYBOARD_SOLO_ANIM_GROUPS),
 ];
 
@@ -924,7 +925,8 @@ class LevelScene extends Phaser.Scene {
     // but is set BEFORE manosDefeated so he can visibly react before he is actually defeated.
     this.bossKissRequested = false;
     this.bossSequenceActive = false;
-    this.bossKissDizzyTimer = null;
+    this.bossKissHitCompleteHandler = null;
+    this.bossKissHitFallbackTimer = null;
     this.bossKissSingingTimer = null;
     // Set once her attack lands. Gates every movement/gesture branch in update().
     this.manosDefeated = false;
@@ -986,7 +988,7 @@ class LevelScene extends Phaser.Scene {
       this.destroyPassiveAudience();
       this.destroyProjectiles();
       this.clearDeathCompletionHandler();
-      if (this.bossKissDizzyTimer) { this.bossKissDizzyTimer.remove(false); this.bossKissDizzyTimer = null; }
+      this.clearBossKissHitCompletionHandler();
       if (this.bossKissSingingTimer) { this.bossKissSingingTimer.remove(false); this.bossKissSingingTimer = null; }
       this.bossSequenceActive = false;
       this.mSequenceActive = false;
@@ -2393,7 +2395,8 @@ class LevelScene extends Phaser.Scene {
 
   // The kiss landing (spec steps 3-6): dizzy -> dizzy WHILE singing -> the existing
   // non-looping collapse -> floor singing. Locks input immediately, same as killManos(),
-  // but defers the actual defeat/collapse until the two holds below finish. Idempotent
+  // but defers the actual defeat/collapse until the hit anim completes and the singing hold
+  // below finishes. Idempotent
   // against a duplicate onImpact call.
   handleBossKissImpact() {
     if (this.manosDefeated || this.bossSequenceActive) return;
@@ -2406,19 +2409,39 @@ class LevelScene extends Phaser.Scene {
     this.touchState.jump = false;
     this.player.setVelocityX(0);
     this.playPlayerVisual('dizzy_hit');
-    this.bossKissDizzyTimer = this.time.delayedCall(BOSS_KISS_DIZZY_HOLD_MS, () => {
-      this.bossKissDizzyTimer = null;
+    this.clearBossKissHitCompletionHandler();
+    this.bossKissHitCompleteHandler = () => this.advanceBossKissToSinging();
+    this.player.once('animationcomplete-dizzyHitAnim', this.bossKissHitCompleteHandler);
+    // Stall guard: if another player anim ever swallows dizzy_hit's completion, move on anyway.
+    this.bossKissHitFallbackTimer = this.time.delayedCall(
+      BOSS_KISS_HIT_FALLBACK_MS, () => this.advanceBossKissToSinging()
+    );
+  }
+
+  // Shared by the dizzy_hit completion listener and its fallback timer. Whichever fires first
+  // clears the other; the singing-timer check makes a second call a no-op.
+  advanceBossKissToSinging() {
+    this.clearBossKissHitCompletionHandler();
+    if (!this.bossSequenceActive || this.bossKissSingingTimer) return;
+    this.playPlayerVisual('dizzy_singing');
+    this.bossKissSingingTimer = this.time.delayedCall(BOSS_KISS_SINGING_HOLD_MS, () => {
+      this.bossKissSingingTimer = null;
       if (!this.bossSequenceActive) return;
-      this.playPlayerVisual('dizzy_singing');
-      this.bossKissSingingTimer = this.time.delayedCall(BOSS_KISS_SINGING_HOLD_MS, () => {
-        this.bossKissSingingTimer = null;
-        if (!this.bossSequenceActive) return;
-        this.bossSequenceActive = false;
-        // killManos() owns the actual collapse from here: grounded starts it immediately,
-        // airborne lets physics settle him first (see its own comment).
-        this.killManos();
-      });
+      this.bossSequenceActive = false;
+      // killManos() owns the actual collapse from here: grounded starts it immediately,
+      // airborne lets physics settle him first (see its own comment).
+      this.killManos();
     });
+  }
+
+  clearBossKissHitCompletionHandler() {
+    if (this.bossKissHitFallbackTimer) {
+      this.bossKissHitFallbackTimer.remove(false);
+      this.bossKissHitFallbackTimer = null;
+    }
+    if (!this.bossKissHitCompleteHandler || !this.player) return;
+    this.player.off('animationcomplete-dizzyHitAnim', this.bossKissHitCompleteHandler);
+    this.bossKissHitCompleteHandler = null;
   }
 
   // A projectile overlapping her is consumed and nothing else -- she has no hitsReceived,
@@ -2452,18 +2475,12 @@ class LevelScene extends Phaser.Scene {
     this.deathCompleteHandler = null;
   }
 
-  // State 6 (spec): singing on the floor, continuing from the death's final pose. Stand-in:
-  // freeze on dizzy_death's last frame rather than play anything, since no separate
-  // floor-singing loop exists yet. Real-art swap, once PLAYER_VISUALS.floor_singing points at
-  // an actual loop: replace this method's body with
-  // `this.player.anims.play(visual.animationKey, true); this.resizeBodyForTexture();` --
-  // no other call site changes.
+  // State 6 (spec): singing on the floor, cut to from the collapse's final pose. Plays the real
+  // floor_singing loop from frame 0.
   startFloorSinging() {
     const visual = this.getPlayerVisual('floor_singing');
-    const meta = this.cfg.sprites[visual.textureKey];
-    this.player.anims.stop();
-    this.player.setFrame(meta.frames - 1);
-    this.applyPlayerFrameAnchor(meta.frames - 1);
+    this.player.anims.play(visual.animationKey, true);
+    this.resizeBodyForTexture();
   }
 
   startGroundedDeath() {
@@ -2653,12 +2670,12 @@ class LevelScene extends Phaser.Scene {
   startTheatreKeyboardSolo() {
     if (this.theatreKeyboardSolo || !this.cfg.sprites[KEYBOARD_SOLO_VISUALS.walking.textureKey]
       || !this.cfg.sprites[KEYBOARD_SOLO_VISUALS.standing.textureKey]) return;
-    // INTERIM (band placement/scale held): old target 555, spawn 1010, height 180 and the
-    // old 498 stage line, converted.
+    // footY/height: P4 measurement (theatre_geometry_2026-09-12.md) -- the safe performer foot
+    // line and Manos's Theatre height. targetX and the spawn x are still interim (P4: cannot measure).
     const spec = {
       targetX: interimX(555),
-      footY: interimY(498),
-      displayContentHeight: interimY(180),
+      footY: 454.0,
+      displayContentHeight: 143.2,
       depth: THEATRE_DEPTH.soprano + 1,
       clipBottomY: null,
     };
