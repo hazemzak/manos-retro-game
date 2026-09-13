@@ -77,10 +77,9 @@
     z-index: 10;
     justify-content: space-between;
     align-items: flex-end;
-    padding: 20px;
-    /* Keep controls clear of the iPhone home-indicator bar (safe-area-inset-bottom
-       is 0 on non-notch devices, so this is a no-op there). */
-    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    /* Keep controls clear of the iPhone home-indicator bar and, in landscape, the notch/
+       rounded corners (every safe-area inset is 0 on non-notch devices, a no-op there). */
+    padding: 20px calc(20px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
     box-sizing: border-box;
     pointer-events: none;
     user-select: none;
@@ -120,6 +119,15 @@
   }
   .touch-btn:active { background: rgba(181,71,63,0.55); }
   .touch-btn-gesture { font-size: 22px; }
+  /* Narrow (phone portrait): one row of 3 + one row of 4 needs 558px, so both clusters fold
+     to 2 columns -- jump centred above left/right, gestures 2x2 incl. Sing. 142px per
+     cluster, 324px total with padding. Wide screens (landscape, tablets) keep the rows. */
+  @media (max-width: 600px) {
+    .touch-cluster { display: grid; grid-template-columns: repeat(2, 64px); }
+    #btn-jump { grid-column: 1 / span 2; grid-row: 1; justify-self: center; }
+    #btn-left { grid-column: 1; grid-row: 2; }
+    #btn-right { grid-column: 2; grid-row: 2; }
+  }
 
   /* GTA2-style "mission text" lyric bubble -- boxed, hard-edged (no border-radius, no
      blur/shadow softness -- that would read as modern UI, not 8-bit), dark solid
@@ -216,12 +224,19 @@
      added here. */
   .ltr-iso { unicode-bidi: isolate; direction: ltr; display: inline-block; }
 
+  /* World-anchored lyric boxes (#cinema-screen-lyrics, #heart-lyrics). Each box is laid out
+     in 1280x720 DESIGN px (width/height/font-size set by fitWorldLyric() below) and moved
+     onto the stage by one transform from positionWorldLyrics(): translate to the
+     camera-projected screen point, scale by canvas scale x camera zoom, origin top-left. */
+  #cinema-screen-lyrics, #heart-lyrics {
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+  }
   /* In-world cinema-screen lyric overlay -- DOM text over the illuminated screen in the
-     Level 2 cinema interior, shown for real song lyrics during the song-clock
-     ~60s-118.87s window (see src/game.js's renderLyrics()/positionCinemaLyrics() call).
-     Positioned/sized via JS (see positionCinemaLyrics() below) against the measured
-     screen inset in the 1280x720 design canvas. Upper placement is deliberate: it keeps
-     clear of a jumping player (see plan geometry) without an occlusion mask. */
+     Level 2 Theatre, shown for real song lyrics during the song-clock 60s-134.38s window
+     (see src/game.js's renderLyrics()). Upper placement is deliberate: it keeps clear of a
+     jumping player (see plan geometry) without an occlusion mask. */
   #cinema-screen-lyrics {
     position: fixed;
     z-index: 9;
@@ -240,7 +255,7 @@
        stage/curtain art instead. */
     color: #f5e6c8;
     font-family: 'ManosLyrics', sans-serif;
-    font-size: var(--cinema-lyric-size, 24px);
+    font-size: 22px;
     line-height: 1.25;
     text-align: center;
     direction: rtl;
@@ -253,6 +268,35 @@
     text-shadow: none;
   }
   #cinema-screen-lyrics[hidden] { display: none; }
+  /* Level 1 lyrics inside the lit heart marquee of the Fara7 background (replaces
+     #lyric-bubble in Fara7 only). Warm yellow #FFD54A on the heart's dark red (~#5a0a0a) is
+     ~10:1 contrast. Same flat 8-bit treatment as the cinema screen: no shadow, no box. */
+  #heart-lyrics {
+    position: fixed;
+    z-index: 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #FFD54A;
+    font-family: 'ManosLyrics', sans-serif;
+    font-size: 28px;
+    line-height: 1.2;
+    text-align: center;
+    direction: rtl;
+    unicode-bidi: isolate;
+    white-space: nowrap; /* one line: fitWorldLyric() shrinks 28->22 instead of wrapping */
+    overflow-wrap: normal;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    text-shadow: none;
+  }
+  #heart-lyrics[hidden] { display: none; }
 
   /* Inert credits-scroll overlay -- hidden by default, positioned via JS to cover the
      rendered canvas area under Scale.FIT letterboxing. Styled as a fixed overlay matching
@@ -295,10 +339,12 @@
     <button type="button" class="touch-btn touch-btn-gesture" id="btn-heart" aria-label="Give heart">♥</button>
     <button type="button" class="touch-btn touch-btn-gesture" id="btn-flowers" aria-label="Give flowers">✿</button>
     <button type="button" class="touch-btn touch-btn-gesture" id="btn-dizzy" aria-label="Dizzy">☺</button>
+    <button type="button" class="touch-btn touch-btn-gesture" id="btn-sing" aria-label="Sing">🎤</button>
   </div>
 </div>
 <div id="lyric-bubble" hidden></div>
 <div id="cinema-screen-lyrics" lang="ar" dir="rtl" hidden></div>
+<div id="heart-lyrics" lang="ar" dir="rtl" hidden></div>
 <div id="phone-panel">
   <img id="phone-screen-img" src="" alt="" />
   <div id="phone-message-text" lang="ar" dir="rtl" hidden>
@@ -372,51 +418,96 @@
     }
   }
 
-  // In-world cinema-screen lyric overlay -- shown for real song lyrics once Level 2's
-  // interior is revealed (src/game.js owns visibility/text via renderLyrics()). Rect is
-  // the measured illuminated-screen inset in the 1376x768 design canvas.
-  // Recalibrated for the Level 2 theatre art (the old numbers were measured against the
-  // retired blank cinema-hall image). This is the stage backdrop between the curtain legs,
-  // above the sopranos' heads (their content tops sit at y=328) and below the valance's
-  // lowest dip (~y=248) -- the only clear, unoccupied space on the new background.
+  // In-world cinema-screen lyric box, in 1280x720 design px. This is the stage backdrop
+  // between the curtain legs, above the sopranos' heads (their content tops sit at y=328)
+  // and below the valance's lowest dip (~y=248) -- the only clear, unoccupied space there.
   // INTERIM (2026-09-10): the old 1376x768 rect (520, 252, 340x58) converted proportionally
-  // to the 1280x720 canvas; not yet re-measured against the new theatre plate.
+  // to the 1280x720 canvas; not yet re-measured against the new theatre plate (Q3 validates).
   const CINEMA_LYRIC_RECT = { x: 483.7, y: 236.3, width: 316.3, height: 54.4 };
-  function positionCinemaLyrics() {
+  // Level 1 one-line lyric box inside the Fara7 heart marquee's dark interior, in 1280x720
+  // design px. Measured 2026-09-13, fara7_geometry report (section 5): inside the all-8-frame
+  // safe interior mask (>4px from bulb glow, below the notch, above the flowers), #FFD54A
+  // contrast >= 10.71:1 at the worst pixel.
+  const HEART_LYRIC_RECT = { x: 514, y: 212, width: 248, height: 42 };
+  // Font ranges in design px (shrink-to-fit, 1px steps). Cinema: 22->17 as before. Heart:
+  // 28->22 on ONE line (CSS nowrap, so it shrinks instead of wrapping): the longest Level 1
+  // cue is ~231px wide at 28 and the 1.44em ink height fits 42; 22 design px is still ~12 CSS
+  // px on a 400px-tall landscape phone (same report).
+  const WORLD_LYRICS = [
+    { id: 'cinema-screen-lyrics', rect: CINEMA_LYRIC_RECT, maxFont: 22, minFont: 17 },
+    { id: 'heart-lyrics', rect: HEART_LYRIC_RECT, maxFont: 28, minFont: 22 },
+  ];
+
+  // Cached rendered canvas rect: refreshed only by positionAllOverlays() (resize,
+  // visualViewport, Phaser's own scale resize, font load, the 500ms fallback), never read per frame.
+  let canvasRect = null;
+  function refreshCanvasRect() {
     const canvas = window.game && window.game.canvas;
-    const el = document.getElementById('cinema-screen-lyrics');
-    if (!canvas || !el) return;
-    const rect = canvas.getBoundingClientRect();
-    const sx = rect.width / 1280;
-    const sy = rect.height / 720;
-    el.style.left = (rect.left + CINEMA_LYRIC_RECT.x * sx) + 'px';
-    el.style.top = (rect.top + CINEMA_LYRIC_RECT.y * sy) + 'px';
-    el.style.width = (CINEMA_LYRIC_RECT.width * sx) + 'px';
-    el.style.height = (CINEMA_LYRIC_RECT.height * sy) + 'px';
-    // Shrink-to-fit: start at 22 design px, step down 1 design px at a time until the
-    // text fits both box dimensions (1px rounding tolerance), floor at 17 design px --
-    // if it still doesn't fit at 17px, leave it there rather than looping forever.
-    // (Were 24/18 on the 1376px canvas; same on-screen size.)
-    // Skipped while hidden: a hidden element has zero layout size, so fitting would
-    // measure nothing meaningful -- src/game.js calls this hook again right after it
-    // un-hides the element with new text.
-    if (el.hidden || !el.textContent) {
-      el.style.setProperty('--cinema-lyric-size', (22 * sx) + 'px');
-      return;
+    canvasRect = canvas ? canvas.getBoundingClientRect() : null;
+  }
+  // Bumped when a font finishes loading, so every box re-fits once with real metrics.
+  let fontGeneration = 0;
+  const fittedKeys = new WeakMap();
+
+  // FITTING (layout reads): only when the text or the loaded font changed, or on the first
+  // visible layout (hidden boxes are skipped by the caller, so they fit once shown). The box is
+  // design px, so the result is independent of viewport size and camera zoom.
+  function fitWorldLyric(el, box) {
+    const key = fontGeneration + '|' + el.textContent;
+    if (fittedKeys.get(el) === key) return;
+    el.style.width = box.rect.width + 'px';
+    el.style.height = box.rect.height + 'px';
+    let size = box.maxFont;
+    el.style.fontSize = size + 'px';
+    while (size > box.minFont
+      && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)) {
+      size -= 1;
+      el.style.fontSize = size + 'px';
     }
-    let designSize = 22;
-    el.style.setProperty('--cinema-lyric-size', (designSize * sx) + 'px');
-    while (
-      designSize > 17 &&
-      (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)
-    ) {
-      designSize -= 1;
-      el.style.setProperty('--cinema-lyric-size', (designSize * sx) + 'px');
+    fittedKeys.set(el, key);
+  }
+
+  // World rect -> screen placement, from the camera transform Phaser just rendered with:
+  // camera.matrix maps (world - scroll) to canvas px (for this unrotated camera that is
+  // floor(cam.x + ox) + zoom * (world - scroll - ox)); the cached canvas rect maps canvas px
+  // to CSS px. Returns null until the game and its camera exist.
+  function worldLyricScreenBox(rect) {
+    const scene = window.game && window.game.scene.keys.Level;
+    const cam = scene && scene.cameras && scene.cameras.main;
+    if (!canvasRect) refreshCanvasRect();
+    if (!cam || !canvasRect) return null;
+    const m = cam.matrix;
+    const p = m.transformPoint(rect.x - cam.scrollX, rect.y - cam.scrollY);
+    const sx = canvasRect.width / 1280;
+    const sy = canvasRect.height / 720;
+    return {
+      left: canvasRect.left + sx * p.x,
+      top: canvasRect.top + sy * p.y,
+      width: sx * m.a * rect.width,
+      height: sy * m.d * rect.height,
+      scaleX: sx * m.a,
+      scaleY: sy * m.d,
+    };
+  }
+
+  // POSITIONING (no layout reads): called after every render by src/game.js's post-render
+  // hook and by positionAllOverlays() -- one helper, so the fallback can never disagree with
+  // or overwrite the camera-driven placement.
+  function positionWorldLyrics() {
+    for (const box of WORLD_LYRICS) {
+      const el = document.getElementById(box.id);
+      if (!el || el.hidden || !el.textContent) continue;
+      fitWorldLyric(el, box);
+      const s = worldLyricScreenBox(box.rect);
+      if (!s) continue;
+      const transform = `translate(${s.left}px, ${s.top}px) scale(${s.scaleX}, ${s.scaleY})`;
+      if (box.lastTransform !== transform) {
+        el.style.transform = transform;
+        box.lastTransform = transform;
+      }
     }
   }
-  // Exposed so src/game.js can call this directly on a cue change/first reveal instead
-  // of waiting up to 500ms for the periodic fallback below.
-  window.positionCinemaLyrics = positionCinemaLyrics;
+  window.positionWorldLyrics = positionWorldLyrics;
 
   // Credits overlay positioning hook -- keeps the overlay aligned to the rendered canvas
   // area under Scale.FIT letterboxing, following the same pattern as the existing overlays.
@@ -436,13 +527,17 @@
   window.positionCreditsOverlay = positionCreditsOverlay;
 
   function positionAllOverlays() {
+    refreshCanvasRect();
     positionLyricBubble();
     positionPhoneOverlays();
-    positionCinemaLyrics();
+    positionWorldLyrics();
     positionCreditsOverlay();
   }
 
   window.addEventListener('resize', positionAllOverlays);
+  // Phaser's Scale.FIT applies a window resize on its NEXT game step, after the listener
+  // above has already run -- its own resize event is when the canvas rect is actually new.
+  if (window.game && window.game.scale) window.game.scale.on('resize', positionAllOverlays);
   // visualViewport's own events are used only as a WHEN-to-recheck trigger here -- it
   // fires more promptly than window's resize for some mobile toolbar-driven viewport
   // changes.
@@ -455,8 +550,11 @@
   setInterval(() => { if (window.game && window.game.canvas) { positionAllOverlays(); } }, 500);
   // Custom font metrics (ManosLyrics) change text layout once the font actually loads --
   // re-run everything once it's ready rather than waiting on the 500ms fallback.
+  // fontGeneration forces one re-fit of the world lyric boxes with the real metrics.
+  const onFontsLoaded = () => { fontGeneration += 1; positionAllOverlays(); };
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(positionAllOverlays);
+    document.fonts.ready.then(onFontsLoaded);
+    document.fonts.addEventListener('loadingdone', onFontsLoaded);
   }
   // A phone stage-image swap (see showPhonePanel() in src/game.js) doesn't change any
   // measurement made here, but re-running immediately on load avoids a visible

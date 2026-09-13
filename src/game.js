@@ -42,6 +42,10 @@ const BAR_MS = 4 * BEAT_MS;          // 1935.48ms -- one background loop, 8 fram
 // once-per-2-beats feel if the on-beat cadence reads too fast -- Hazem compares by ear.
 const HEART_FIRE_INTERVAL_MS = BEAT_MS;      // ~483.87ms (once per beat)
 // const HEART_FIRE_INTERVAL_MS = 2 * BEAT_MS;  // ~967.74ms (half-tempo alternative)
+// C5 "everything on the beat": the two subdivisions a repeating musical loop is quantised to.
+// An 8fps loop (125ms/frame) becomes one frame per 16th note, a 4fps loop (250ms) one per 8th.
+const SIXTEENTH_NOTE_MS = BEAT_MS / 4;   // ~120.97ms
+const EIGHTH_NOTE_MS = BEAT_MS / 2;      // ~241.94ms == BAR_MS / 8, the backgrounds' own frame period
 // Each value is 8 separate 1280x720 images, not a sheet: an 8-frame strip (10240px) or a
 // 4x2 grid (5120x1440) would exceed the 4096px texture limit of mobile GPUs.
 const LEVEL_BACKGROUND_KEYS = ['level1_fara7_bg', 'level2_theatre_bg', 'level3_party_bg'];
@@ -219,17 +223,20 @@ function bandPerformanceVisual(textureKey, performanceHeight) {
 // 1280x720 == world); everything wrapped in interimX/interimY is an old 1376x768 value
 // proportionally converted and still waiting on a design call.
 //
-// The new plate is a raised wedding deck: carpet top y 528.7 (back) .. 566.2 (front lip),
-// deck front face 571.6..648.8, then plaza pavement. Manos stands on the front lip.
+// The plate is a raised wedding deck with plaza pavement in front; Manos stands on the front
+// lip. The crowd frames (2026-09-13) rescale it slightly: last carpet row at the lip 573,
+// upstage centre line 516, deck x ~172.7..1105.4 at the lip (fara7_geometry report), which
+// is why the placements below were re-measured and no longer match blocking_coordinates.json.
 const FARA7 = {
-  // Manos's ground line = the deck's front lip (measured, high confidence). Also the
-  // ground collider's top edge.
-  groundY: 566.2,
+  // Manos's ground line on the deck's front lip. Also the ground collider's top edge and,
+  // minus 150, the spawn drop height. Measured 2026-09-13, fara7_geometry report (lip row
+  // 573 minus the old foot offset x sy; the transform alone gives 568.90).
+  groundY: 570.17,
   // Only the keyboard solo's temporary "walk toward the player" hand-off uses this shared
-  // line now (updateLevel1KeyboardSolo()) -- the band's own marks are FARA7.band below,
-  // each with its own measured foot line. Still INTERIM (no plate reference for a mid-
-  // stage walk-up mark): the old 628 front lip, converted.
-  stageFootY: interimY(628),
+  // line (updateLevel1KeyboardSolo()) -- the band's own marks are FARA7.band below.
+  // Measured 2026-09-13, fara7_geometry report: set to the ground line (the old
+  // interimY(628) lay below the deck lip).
+  stageFootY: 570.17,
   // Measured (BLOCKING_COORDINATES.md), per band member: footX/footY, the derived
   // STANDING height (idle/walk-in/dizzy) and the plate's measured seated PERFORMANCE
   // height (the playing-instrument loop). Package E: per-visual heights (see
@@ -237,18 +244,20 @@ const FARA7 = {
   // Owner decision: accordion and drums sit exactly on these marks even though the
   // accordionist's chair leg lands at the deck edge and the drums sit on carpet that only
   // exists in the populated plate -- exactness wins over comfort here.
+  // footX/footY measured 2026-09-13, fara7_geometry report (heights unchanged, +1.24% only).
   band: {
-    accordion: { footX: 187.6, footY: 562.4, standingHeight: 204.4, performanceHeight: 155.3 },
-    keyboard: { footX: 306.2, footY: 561.6, standingHeight: 216.5, performanceHeight: 164.5 },
-    tabla: { footX: 956.9, footY: 561.6, standingHeight: 198.3, performanceHeight: 150.7 },
-    drums: { footX: 1102.4, footY: 562.4, standingHeight: 193.3, performanceHeight: 157.7 },
+    accordion: { footX: 172.66, footY: 566.32, standingHeight: 204.4, performanceHeight: 155.3 },
+    keyboard: { footX: 295.13, footY: 565.51, standingHeight: 216.5, performanceHeight: 164.5 },
+    tabla: { footX: 967.04, footY: 565.51, standingHeight: 198.3, performanceHeight: 150.7 },
+    drums: { footX: 1117.28, footY: 566.32, standingHeight: 193.3, performanceHeight: 157.7 },
   },
-  // INTERIM: play area between the band and the couple ("confinement", GAME_PLAN section
-  // 0; it LIFTS for the scripted exit). Old 610..950, converted.
-  walkMinX: interimX(610),
-  walkMaxX: interimX(950),
-  // Measured Manos mark (BLOCKING_COORDINATES.md); falls inside walkMinX..walkMaxX above.
-  playerSpawnX: 581.8,
+  // Play area between the band and the couple ("confinement", GAME_PLAN section 0; it LIFTS
+  // for the scripted exit). Staged edges carried with the architecture: measured 2026-09-13,
+  // fara7_geometry report.
+  walkMinX: 564.89,
+  walkMaxX: 891.47,
+  // Manos mark, measured 2026-09-13, fara7_geometry report; inside walkMinX..walkMaxX above.
+  playerSpawnX: 579.71,
   // INTERIM (band entrances): stage-RIGHT entry mark just off the right screen edge. Every
   // walk-in sheet draws its character walking LEFT, so an actor entering here travels left
   // with the art unflipped.
@@ -257,16 +266,13 @@ const FARA7 = {
   // its walk-in sheet flipped (setFlipX) so the left-facing art reads as walking RIGHT.
   leftWingX: interimX(30),
   entranceSpeedPxPerSecond: 220,
-  // The bride/groom heart-chair (fara7_couple_heart_chair_idle), measured: chair centre,
-  // chair-feet line, content height (scale 0.2951).
-  couple: { x: 759.4, footY: 558.6, contentHeight: 140.8 },
+  // The bride/groom heart-chair (fara7_couple_heart_chair_idle): chair centre and chair-feet
+  // line measured 2026-09-13, fara7_geometry report; content height unchanged (scale 0.2951).
+  couple: { x: 763.10, footY: 562.47, contentHeight: 140.8 },
 };
-// Background furthest back; the band and wedding-party dressing sit behind the hero.
-// crowd sits in FRONT of the band/dressing/hero (RUN 21's foreground crowd, per
-// the reference photo's own composition) -- see projectileForegroundDepth and
-// getProjectileDepth() for why thrown projectiles need their own depth above this,
-// or a low throw would render behind it.
-const FARA7_DEPTH = { background: -10, band: -5, dressing: -4, crowd: 1 };
+// Background furthest back; the band and wedding-party dressing sit behind the hero. The
+// crowd is baked into the background loop itself, so nothing draws in front of him.
+const FARA7_DEPTH = { background: -10, band: -5, dressing: -4 };
 
 // Level 1's own sheets, same grouped shape (and same three consumers) as
 // LEVEL2_ANIM_GROUPS below. The band's idle/love loops are NOT here -- they predate this
@@ -282,22 +288,8 @@ const LEVEL1_ANIM_GROUPS = {
       wife_bride_seated_idle: 'brideSeatedAnim',
     },
   },
-  // RUN 21: the 4 new foreground crowd groups (3 men each), deliberately its own
-  // slow loop -- a much lower frame rate than every other cast loop here, since
-  // this is meant to read as secondary/background motion (a restrained clap or
-  // a small sway), not full character-animation fidelity.
-  crowd: {
-    frameRate: 4,
-    repeat: -1,
-    sheets: {
-      fara7_crowd_group_a: 'fara7CrowdGroupAAnim',
-      fara7_crowd_group_b: 'fara7CrowdGroupBAnim',
-      fara7_crowd_group_c: 'fara7CrowdGroupCAnim',
-      fara7_crowd_group_d: 'fara7CrowdGroupDAnim',
-    },
-  },
-  // RUN 22: the combined bride/groom heart-chair sprite. Same slow secondary-motion rate
-  // as crowd -- this is a subtle idle blink loop, not full character animation.
+  // RUN 22: the combined bride/groom heart-chair sprite. A slow 4fps secondary-motion
+  // loop -- a subtle idle blink, not full character animation.
   dressing: {
     frameRate: 4,
     repeat: -1,
@@ -390,6 +382,13 @@ const MIC_VISUALS = [
 const MIC_ANCHOR = { anchorFrameX: 258, anchorFrameY: 541, refContentHeight: 441 };
 // Both below the player's default depth 0, so the hero is never occluded.
 const THEATRE_DEPTH = { background: -10, soprano: -5 };
+// C1 Theatre push-in: one slow, constant camera zoom-in across the Theatre ("no breathe, just
+// cinematic, constant zoom in, just a little bit"). Linear in song time from the moment
+// enterLevel2() installs the Theatre. The rate puts a normal ~70s Theatre (install ~62-65s,
+// Party install ~132.6s) near 1.06 -- a NOMINAL endpoint, not a plateau; the max is only a
+// safety clamp for an abnormally long Theatre. Fara7 and Party never zoom.
+const THEATRE_PUSH_IN_RATE = 0.06 / 70;   // zoom per song second (~0.000857)
+const THEATRE_PUSH_IN_MAX_ZOOM = 1.08;
 
 // Ground-truth singing windows for Theatre sopranos:
 // Phase 1: 71-88s, Phase 2: 113.98s through Theatre's exit (132s).
@@ -462,8 +461,10 @@ const PARTY = {
   // Manos's ground line (plate row 682) and the ground collider's top edge. The boss
   // walks up to him on the same line.
   groundY: 521.8,
-  // Fallback only now -- every band member below carries its own measured footY.
-  stageFootY: interimY(567),
+  // Fallback only now -- every band member below carries its own measured footY. Measured
+  // 2026-09-13, party_geometry report: set to the kept ground line (the old interimY(567)
+  // lay below the deck lip).
+  stageFootY: 521.8,
   // The trio + mic stand line (plate row 677) -- sopranos and the stand foot.
   micFootY: 518.0,
   // Measured (BLOCKING_COORDINATES.md), per band member: footX/footY, the derived
@@ -475,17 +476,20 @@ const PARTY = {
   // and his heights are derived only by applying the Fara7 drummer's own measured scale
   // through the Fara7->Party player-height ratio (176.0/233.4 = 0.754) to keep him
   // visually consistent in size with this level's other actors -- never a plate match.
+  // keyboard/tabla/drums footX measured 2026-09-13, party_geometry report (drums is a staged
+  // mark carried with the architecture); accordion, every footY and all heights unchanged.
   band: {
     accordion: { footX: 424.9, footY: 509.6, standingHeight: 166.1, performanceHeight: 126.2 },
-    keyboard: { footX: 505.3, footY: 509.6, standingHeight: 154.0, performanceHeight: 117.1 },
-    tabla: { footX: 803.8, footY: 509.6, standingHeight: 160.1, performanceHeight: 121.7 },
-    drums: { footX: 300, footY: 509.6, standingHeight: 145.8, performanceHeight: 118.9 },
+    keyboard: { footX: 507.51, footY: 509.6, standingHeight: 154.0, performanceHeight: 117.1 },
+    tabla: { footX: 819.65, footY: 509.6, standingHeight: 160.1, performanceHeight: 121.7 },
+    drums: { footX: 292.83, footY: 509.6, standingHeight: 145.8, performanceHeight: 118.9 },
   },
-  // INTERIM: play area between the two cast blocks (old 610..780), converted.
-  walkMinX: interimX(610),
-  walkMaxX: interimX(780),
-  // Measured Manos mark (BLOCKING_COORDINATES.md); falls inside walkMinX..walkMaxX above.
-  playerSpawnX: 585.6,
+  // Play area between the two cast blocks (staged edges carried with the architecture):
+  // measured 2026-09-13, party_geometry report.
+  walkMinX: 572.49,
+  walkMaxX: 737.86,
+  // Manos mark, measured 2026-09-13, party_geometry report; inside walkMinX..walkMaxX above.
+  playerSpawnX: 591.48,
   // INTERIM (entrances): stage-RIGHT entry mark; every walk-in sheet draws its character
   // walking LEFT, so an actor entering here travels left with the art unflipped.
   wingX: interimX(1330),
@@ -495,8 +499,8 @@ const PARTY = {
   // a single shared wing between the 2:12 boot and the 2:40 boss, and they can only be
   // staggered one behind another.
   entranceSpeedPxPerSecond: 300,
-  // The mic stand foot on the plate (plate x 929).
-  micX: 711.2,
+  // The mic stand foot, measured 2026-09-13, party_geometry report (y/height unchanged).
+  micX: 722.82,
   // Her own dial, deliberately slower than the cast's -- the entrance is the level's one
   // dramatic beat, not another walk-on.
   bossEntranceSpeedPxPerSecond: 200,
@@ -551,6 +555,64 @@ const ALL_ANIM_GROUPS = [
   PLAYER_BOSS_SINGING_ANIM_GROUP,
   ...Object.values(KEYBOARD_SOLO_ANIM_GROUPS),
 ];
+
+// C5: the EXPLICIT list of repeating musical loops whose frame comes from the shared song
+// clock -- frame = floor(elapsed / subdivision) % frameCount, the backgrounds' own formula --
+// instead of Phaser's free-running timer. buildLevel() pauses each listed Animation so Phaser
+// never advances it; applyMusicalLoopPhases() sets the frame every tick. NOT listed, on
+// purpose: walks/jumps (10fps, physics-driven), finite gestures (projectile spawn listens to
+// animationupdate), phone actions, dizzy loops (the soprano perform trigger listens to
+// animationrepeat), femme fatale idle/entrance, dizzy_hit and death (completion events).
+// LEVEL_POLISH_BEAT_LOOPS is the one list (the Q6 harness reads it by this name, also on
+// window); MUSICAL_LOOP_SUBDIVISIONS below is only its animation-key lookup.
+// `category` is one of: manos, band, couple, sopranos, boss, heart_emission.
+const beatLoop = (category, name, subdivisionMs) => Object.freeze({ category, name, subdivisionMs });
+const LEVEL_POLISH_BEAT_LOOPS = Object.freeze([
+  // Manos idle (4fps) and singing (8fps), per level.
+  beatLoop('manos', 'idleFara7Anim', EIGHTH_NOTE_MS),
+  beatLoop('manos', 'idleTheatreAnim', EIGHTH_NOTE_MS),
+  beatLoop('manos', 'idlePartyAnim', EIGHTH_NOTE_MS),
+  beatLoop('manos', 'singingFara7Anim', SIXTEENTH_NOTE_MS),
+  beatLoop('manos', 'singingTheatreAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('manos', 'singingPartyAnim', SIXTEENTH_NOTE_MS),
+  // Band idle loops (8fps).
+  beatLoop('band', 'musicianDrumsIdleAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('band', 'musicianKeyboardIdleAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('band', 'musicianAccordionIdleAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('band', 'tablaPlayerIdleAnim', SIXTEENTH_NOTE_MS),
+  // Band performance loops (8fps), including the keyboard solo's standing rock.
+  beatLoop('band', 'musicianDrumsPlayingAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('band', 'musicianKeyboardPlayingAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('band', 'musicianAccordionPlayingAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('band', 'tablaPlayerPlayingAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('band', 'musicianKeyboardSoloStandingAnim', SIXTEENTH_NOTE_MS),
+  // Fara7 couple heart-chair (4fps) and its two-sprite fallback (8fps).
+  beatLoop('couple', 'fara7CoupleHeartChairIdleAnim', EIGHTH_NOTE_MS),
+  beatLoop('couple', 'brideSeatedAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('couple', 'groomSeatedAnim', SIXTEENTH_NOTE_MS),
+  // Sopranos idle (8fps) and the mic composites, which ARE their singing loops (8fps).
+  beatLoop('sopranos', 'sopranoGreenIdleAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('sopranos', 'sopranoGoldIdleAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('sopranos', 'sopranoRedIdleAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('sopranos', 'theatreMicEmptyAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('sopranos', 'theatreMicOneAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('sopranos', 'theatreMicTwoAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('sopranos', 'theatreMicThreeAnim', SIXTEENTH_NOTE_MS),
+  // Boss-sequence singing loops (8fps, played on Manos).
+  beatLoop('boss', 'dizzySingingAnim', SIXTEENTH_NOTE_MS),
+  beatLoop('boss', 'floorSingingAnim', SIXTEENTH_NOTE_MS),
+  // Not an animation: the M-key heart volley, one per beat (see update()).
+  beatLoop('heart_emission', 'mHeartEmission', HEART_FIRE_INTERVAL_MS),
+]);
+const MUSICAL_LOOP_SUBDIVISIONS = Object.freeze(Object.fromEntries(
+  LEVEL_POLISH_BEAT_LOOPS
+    .filter((loop) => loop.category !== 'heart_emission')
+    .map((loop) => [loop.name, loop.subdivisionMs])
+));
+
+function musicalLoopFrameIndex(animationKey, frameCount, elapsed) {
+  return Math.floor(Math.max(0, elapsed) * 1000 / MUSICAL_LOOP_SUBDIVISIONS[animationKey]) % frameCount;
+}
 
 // The two absolute song-clock beats GAME_PLAN section 0's timeline table locks for this
 // level: 2:12 is the Level 2 -> Level 3 transition, 2:40 the femme fatale's entrance. Both
@@ -791,14 +853,16 @@ class LevelScene extends Phaser.Scene {
       frameRate: 8,
       repeat: -1,
     });
+    // C5: Phaser must never advance a song-clock-phased loop on its own timer. Pausing the
+    // Animation (not the sprite) keeps anims.isPlaying true, so play(key, true) stays a no-op.
+    for (const key of Object.keys(MUSICAL_LOOP_SUBDIVISIONS)) {
+      const animation = this.anims.get(key);
+      if (animation) animation.pause();
+    }
 
     // The wedding-stage loop, 1280x720 frames drawn 1:1 on the canvas.
     this.levelBg = null;
     this.showLevelBackground('level1_fara7_bg', FARA7_DEPTH.background);
-    // Fara7's foreground crowd is a composition layer in front of the hero. The common
-    // projectile-depth resolver lifts shots above it; levels without such a layer clear
-    // this value during their transition.
-    this.projectileForegroundDepth = FARA7_DEPTH.crowd;
 
     // Player spawns centre stage, under the heart marquee.
     // Spawn ABOVE the ground line (not on/inside it) so Arcade Physics resolves a real
@@ -814,15 +878,15 @@ class LevelScene extends Phaser.Scene {
 
     // No scroll, in either level: fixed bounds on the canvas, camera parked on its centre.
     this.physics.world.setBounds(0, 0, STAGE_VIEW.width, STAGE_VIEW.height);
-    this.cameras.main.stopFollow();
-    this.cameras.main.setFollowOffset(0, 0);
-    this.cameras.main.setBounds(0, 0, STAGE_VIEW.width, STAGE_VIEW.height);
-    this.cameras.main.centerOn(STAGE_VIEW.width / 2, STAGE_VIEW.height / 2);
+    // Survives scene restarts on purpose (never reset to 0), so a callback captured by a
+    // previous run can never match a new run's generation.
+    this.transitionGeneration = (this.transitionGeneration || 0) + 1;
+    this.theatreZoomStartElapsed = null;
+    this.resetStageCamera();
 
     this.passiveAudience = [];
     this.buildFara7Actors();
-    this.buildFara7Crowd();      // pushes into the array initialized above
-    this.buildFara7Dressing();   // pushes into the same array
+    this.buildFara7Dressing();   // pushes into the array initialized above
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keyA = this.input.keyboard.addKey('A');
@@ -834,7 +898,7 @@ class LevelScene extends Phaser.Scene {
     this.keyD = this.input.keyboard.addKey('D');
     this.keyM = this.input.keyboard.addKey('M');
     this.mSequenceActive = false;
-    this.debugRapidFireAccumMs = 0;
+    this.mHeartBeatIndex = null;
 
     this.gesture = null; // null | 'heart' | 'flowers' | 'dizzy'
     this.gestureCompleteEvent = null;
@@ -846,7 +910,8 @@ class LevelScene extends Phaser.Scene {
     // keyboard's isDown checks already work. Gesture flags are edge-triggered -- set
     // true on pointerdown, read once by update() and reset to false there, mirroring
     // Phaser.Input.Keyboard.JustDown semantics for the L/F/D keys.
-    this.touchState = { left: false, right: false, jump: false, heart: false, flowers: false, dizzy: false };
+    // `sing` is the M key's twin (edge-triggered, see update()).
+    this.touchState = { left: false, right: false, jump: false, heart: false, flowers: false, dizzy: false, sing: false };
     this.setupTouchControls();
 
     // Background music -- loaded in its own pass, kicked off only now that the game
@@ -964,6 +1029,12 @@ class LevelScene extends Phaser.Scene {
     this.lyrics = validLyrics ? lyricData : [];
     this.lyricEl = document.getElementById('lyric-bubble');
     this.cinemaLyricEl = document.getElementById('cinema-screen-lyrics');
+    this.heartLyricEl = document.getElementById('heart-lyrics');
+    // C2/C3: the world-anchored lyric boxes are placed from the camera transform the renderer
+    // just used, so they are positioned once per rendered frame, after render (index.html owns
+    // the helper). Removed in the shutdown handler below.
+    this.onGamePostRender = () => { if (window.positionWorldLyrics) window.positionWorldLyrics(); };
+    this.game.events.on(Phaser.Core.Events.POST_RENDER, this.onGamePostRender);
 
     // Thrown-projectile state (heart/flowers gestures). Listeners registered ONCE here,
     // not inside startGesture() -- registering per-play would stack duplicate listeners
@@ -992,12 +1063,17 @@ class LevelScene extends Phaser.Scene {
       if (this.bossKissSingingTimer) { this.bossKissSingingTimer.remove(false); this.bossKissSingingTimer = null; }
       this.bossSequenceActive = false;
       this.mSequenceActive = false;
-      this.debugRapidFireAccumMs = 0;
-      for (const el of [this.lyricEl, this.cinemaLyricEl]) {
+      this.mHeartBeatIndex = null;
+      for (const el of [this.lyricEl, this.cinemaLyricEl, this.heartLyricEl]) {
         if (!el) continue;
         el.textContent = '';
         el.hidden = true;
       }
+      this.game.events.off(Phaser.Core.Events.POST_RENDER, this.onGamePostRender);
+      if (this.touchControlsAbort) this.touchControlsAbort.abort();
+      this.touchControlsAbort = null;
+      // Invalidates every fade callback this run captured.
+      this.transitionGeneration += 1;
     });
 
     if (this.getLevelElapsed() < LEVEL0_INTRO_SECONDS) {
@@ -1237,6 +1313,11 @@ class LevelScene extends Phaser.Scene {
     this.songEndElapsed = Number.isFinite(duration) && duration > 0
       ? duration
       : SILENT_TRACK_SECONDS;
+    // C1: an abnormal song end while still in the Theatre must not leave the push-in applied.
+    if (this.level2Active) {
+      this.theatreZoomStartElapsed = null;
+      this.cameras.main.setZoom(1);
+    }
     this.showCredits();
   }
 
@@ -1275,23 +1356,27 @@ class LevelScene extends Phaser.Scene {
     const fading = this.introActive
       || (this.fadedOut && !this.level2Active && !this.level3Active)
       || this.level2Revealing || this.level3Revealing;
-    const bubbleText = !fading && !inCinemaWindow ? activeText : '';
+    const existingBubbleText = !fading && !inCinemaWindow ? activeText : '';
+    // C3: in Fara7 exactly what the bubble would have shown goes inside the lit heart marquee
+    // instead. Theatre (outside its screen window) and Party keep the bubble, including the
+    // 113.98-134.38 cue's tail after the Party reveal.
+    const isFara7 = !this.level2Active && !this.level3Active;
+    const heartText = isFara7 ? existingBubbleText : '';
+    const bubbleText = isFara7 ? '' : existingBubbleText;
     const cinemaText = !fading && this.level2Active && inCinemaWindow ? activeText : '';
 
-    // Hide both first on a route change so matching/stale text can never leave both
-    // destinations visible during a seek or a transition.
-    const pairs = [[this.lyricEl, bubbleText], [this.cinemaLyricEl, cinemaText]];
+    // Hide all first on a route change so matching/stale text can never leave two
+    // destinations visible during a seek or a transition. The world-anchored boxes are
+    // fitted and placed by the post-render hook (index.html positionWorldLyrics()) before
+    // this frame is painted.
+    const pairs = [[this.lyricEl, bubbleText], [this.cinemaLyricEl, cinemaText], [this.heartLyricEl, heartText]];
     for (const [el, text] of pairs) {
       if (el && !text) el.hidden = true;
     }
     for (const [el, text] of pairs) {
       if (!el) continue;
-      const changed = el.textContent !== text;
-      if (changed) el.textContent = text;
+      if (el.textContent !== text) el.textContent = text;
       el.hidden = !text;
-      if (text && el === this.cinemaLyricEl && changed && window.positionCinemaLyrics) {
-        window.positionCinemaLyrics();
-      }
     }
   }
 
@@ -1361,15 +1446,15 @@ class LevelScene extends Phaser.Scene {
     // hidden on its wing mark.
     //
     // Marks are now the measured plate positions (BLOCKING_COORDINATES.md), replacing the
-    // RUN 21 provisional numbers: accordion + keyboard on the LEFT (187.6/306.2), tabla +
-    // drums on the RIGHT (956.9/1102.4), flanking Manos/the wedding couple in the middle --
-    // same grouping as before, exact marks now measured. Both left marks sit below
-    // FARA7.walkMinX(567.4); both right marks sit above walkMaxX(883.7), so the player's
-    // play area still stays clear of the band. Entrance ordering keeps the same
+    // RUN 21 provisional numbers (re-measured 2026-09-13 on the crowd frames, fara7_geometry
+    // report): accordion + keyboard on the LEFT (172.66/295.13), tabla + drums on the RIGHT
+    // (967.04/1117.28), flanking Manos/the wedding couple in the middle. Both left marks sit
+    // below FARA7.walkMinX(564.89); both right marks sit above walkMaxX(891.47), so the
+    // player's play area still stays clear of the band. Entrance ordering keeps the same
     // furthest-from-wing-starts-first invariant and the same start-time SET
-    // (1500/7000/13500/20000): keyboard(306.2) is further from the left wing than
-    // accordion(187.6), so it still starts first; tabla(956.9) is further from the right
-    // wing than drums(1102.4), so it still starts first. Owner decision: accordion and
+    // (1500/7000/13500/20000): keyboard(295.13) is further from the left wing than
+    // accordion(172.66), so it still starts first; tabla(967.04) is further from the right
+    // wing than drums(1117.28), so it still starts first. Owner decision: accordion and
     // drums sit exactly on these marks even though the accordionist's chair leg lands at
     // the deck edge and the drums sit on carpet that only exists in the populated plate.
     this.buildInteractiveActors([
@@ -1386,51 +1471,6 @@ class LevelScene extends Phaser.Scene {
       }, 13500, 'right'),
       bandMember('drums', FARA7.band.drums, musician('drums', 'Drums', FARA7.band.drums), 20000, 'right'),
     ]);
-  }
-
-  // RUN 21's 4 new foreground crowd groups (3 seated men each), replacing the crowd
-  // RUN 20 deleted wholesale. Matches the reference photo's own treatment: deliberately
-  // secondary/lower-detail than the cast, seen mostly from behind, minimal motion (a
-  // restrained clap or small sway) at a slow 4fps loop. Ordinary sprites only -- no
-  // physics, no entrance, no hit state -- using the same this.passiveAudience array +
-  // destroyPassiveAudience() teardown the dressing sprites already share.
-  //
-  // Placement: 4 groups spread left-to-right (centre-x 172/516/860/1204), each scaled to
-  // its OWN measured content box capped at 180px tall / 336px wide, preserving aspect
-  // ratio -- every group here is wider than tall (3 men side by side), so all 4 end up
-  // width-capped in practice, not height-capped. `top` is the measured world-Y where each
-  // group's real background placement was checked against the actual stage art; the
-  // resulting foot/anchor Y (top + this group's own scaled height) intentionally runs
-  // past the bottom of the canvas for all 4 -- the camera's own edge crops their
-  // lower bodies, matching the reference photo's own foreground-crowd framing, no
-  // clipBottomY needed for this (contrast with the old pre-RUN-20 audience, which DID use
-  // clipBottomY to crop at a background seat-line -- there's no such line here).
-  // Staggered starting frames (explicit indices, not setProgress() fractions) so the 4
-  // groups don't clap in lockstep.
-  buildFara7Crowd() {
-    const sheets = LEVEL1_ANIM_GROUPS.crowd.sheets;
-    // INTERIM (crowd layout held): centre/top and the 180x336 size caps are the RUN 21
-    // numbers converted.
-    const placements = [
-      // [textureKey, centreX, topY, nativeContentWidth, nativeContentHeight, startFrame]
-      ['fara7_crowd_group_a', interimX(172), interimY(636), 644, 304, 0],
-      ['fara7_crowd_group_b', interimX(516), interimY(642), 672, 314, 1],
-      ['fara7_crowd_group_c', interimX(860), interimY(638), 675, 318, 2],
-      ['fara7_crowd_group_d', interimX(1204), interimY(644), 647, 300, 3],
-    ];
-    for (const [textureKey, x, topY, nativeW, nativeH, startFrame] of placements) {
-      if (!this.cfg.sprites[textureKey]) continue;
-      const scale = Math.min(interimY(180) / nativeH, interimX(336) / nativeW);
-      const displayContentHeight = nativeH * scale;
-      const sprite = this.add.sprite(x, topY + displayContentHeight, textureKey, 0)
-        .setDepth(FARA7_DEPTH.crowd);
-      this.setActorVisual(
-        { sprite, spec: { displayContentHeight, clipBottomY: null } },
-        { textureKey, animationKey: sheets[textureKey] }
-      );
-      sprite.anims.setCurrentFrame(sprite.anims.currentAnim.frames[startFrame]);
-      this.passiveAudience.push(sprite);
-    }
   }
 
   // Groom and bride: seated set-dressing on the deck itself (GAME_PLAN section 0 --
@@ -1462,10 +1502,11 @@ class LevelScene extends Phaser.Scene {
       return;
     }
     // Fallback: the two separate sprites, kept working if the combined asset is ever
-    // missing/unregistered. INTERIM: old marks/heights converted, on the couple's line.
+    // missing/unregistered, on the couple's line. x measured 2026-09-13, fara7_geometry report;
+    // heights are still the old converted values (KEEP).
     const placements = [
-      ['wife_bride_seated_idle', interimX(795), interimY(165)],
-      ['husband_groom_seated_idle', interimX(880), interimY(150)],
+      ['wife_bride_seated_idle', 742.59, interimY(165)],
+      ['husband_groom_seated_idle', 824.23, interimY(150)],
     ];
     for (const [textureKey, x, contentHeight] of placements) {
       if (!this.cfg.sprites[textureKey]) continue;
@@ -1671,19 +1712,17 @@ class LevelScene extends Phaser.Scene {
     // The BAND (accordion/drums/keyboard) enters from the left wing (PARTY.leftWingX,
     // travelling right, art flipped); tabla and the sopranos share the right wing. Same
     // furthest-mark-first invariant per wing, mirrored: on the LEFT that is the LARGEST
-    // target x (accordion 424.9 before drums 300); on the RIGHT it is the smallest
-    // (keyboard 505.3 before tabla 803.8, then the sopranos further right still, smallest-
-    // first among themselves too: green 900 before gold 960 before red 1020). tabla's new
-    // measured mark is now much CLOSER to its wing than the old provisional one was, so it
-    // clears the wing and parks well before any soprano starts (tabla starts 9900ms,
-    // travels (1236.9-803.8)/300 = 1.44s, arrives ~11.3s -- green doesn't start until
-    // 11.6s). Every earliestStartMs below is unchanged from the prior build.
+    // target x (accordion 424.9 before drums 292.83); on the RIGHT it is the smallest
+    // (keyboard 507.51 before tabla 819.65, then the sopranos further right still, smallest-
+    // first among themselves too: green 920.25 before gold 982.99 before red 1045.73). tabla
+    // clears the wing and parks well before any soprano starts (tabla starts 9900ms, travels
+    // (1237.2-819.65)/300 = 1.39s, arrives ~11.3s -- green doesn't start until 11.6s). Every
+    // earliestStartMs below is unchanged from the prior build.
     //
-    // Soprano pre-mic waiting marks (900/960/1020) are STAGED, not measured -- same
-    // reasoning as Theatre's (no plate reference for a pre-mic mark) -- and were moved
-    // right of tabla's new measured mark (was interimX(880)/960/1040, which put green only
-    // ~15px from tabla's new 803.8) so the two casts' resting silhouettes stay clear of
-    // each other.
+    // Soprano pre-mic waiting marks are STAGED, not observed -- same reasoning as Theatre's
+    // (no plate reference for a pre-mic mark) -- kept right of tabla's mark so the two casts'
+    // resting silhouettes stay clear of each other. Measured 2026-09-13, party_geometry
+    // report (carried with the architecture; were 900/960/1020).
     this.buildInteractiveActors([
       partyActor('accordion', PARTY.band.accordion.footX, musician('accordion', 'Accordion', PARTY.band.accordion), 800, 'left'),
       partyActor('drums', PARTY.band.drums.footX, musician('drums', 'Drums', PARTY.band.drums), 4100, 'left'),
@@ -1696,9 +1735,9 @@ class LevelScene extends Phaser.Scene {
         footY: PARTY.band.tabla.footY,
         contentHeight: PARTY.band.tabla.standingHeight,
       }, 9900, 'right'),
-      partyActor('soprano_green', 900, soprano('green'), 11600),
-      partyActor('soprano_gold', 960, soprano('gold'), 13000),
-      partyActor('soprano_red', 1020, soprano('red'), 14400),
+      partyActor('soprano_green', 920.25, soprano('green'), 11600),
+      partyActor('soprano_gold', 982.99, soprano('gold'), 13000),
+      partyActor('soprano_red', 1045.73, soprano('red'), 14400),
     ]);
     this.buildPartyMic();
   }
@@ -2324,7 +2363,9 @@ class LevelScene extends Phaser.Scene {
     if (this.boss || !this.cfg.sprites.femme_fatale_idle) return;
     const spec = {
       id: 'femme_fatale',
-      targetX: interimX(810),   // INTERIM: just outside the hero's box -- she walks up to him
+      // Just outside the hero's box -- she walks up to him. Staged mark, measured 2026-09-13,
+      // party_geometry report.
+      targetX: 767.04,
       footY: PARTY.groundY,
       displayContentHeight: PARTY.bossContentHeight,
       idle: { textureKey: 'femme_fatale_idle', animationKey: LEVEL3_ANIM_GROUPS.loops.sheets.femme_fatale_idle },
@@ -2403,7 +2444,7 @@ class LevelScene extends Phaser.Scene {
     this.bossSequenceActive = true;
     this.cancelGesture();
     this.mSequenceActive = false;
-    this.debugRapidFireAccumMs = 0;
+    this.mHeartBeatIndex = null;
     this.touchState.left = false;
     this.touchState.right = false;
     this.touchState.jump = false;
@@ -2507,7 +2548,7 @@ class LevelScene extends Phaser.Scene {
     this.manosDefeated = true;
     this.cancelGesture();
     this.mSequenceActive = false;
-    this.debugRapidFireAccumMs = 0;
+    this.mHeartBeatIndex = null;
     this.touchState.left = false;
     this.touchState.right = false;
     this.touchState.jump = false;
@@ -2535,15 +2576,20 @@ class LevelScene extends Phaser.Scene {
 
   // Wires the #touch-controls DOM overlay (index.html) to this.touchState. Pointer
   // events, not click, so held movement/jump buttons give real press-and-hold behaviour.
+  // One listener set per scene run: every listener shares one AbortController that the
+  // shutdown handler aborts, so a restart can never stack a second set on the same buttons.
   setupTouchControls() {
+    if (this.touchControlsAbort) this.touchControlsAbort.abort();
+    this.touchControlsAbort = new AbortController();
+    const signal = this.touchControlsAbort.signal;
     const bind = (id, onDown, onUp) => {
       const el = document.getElementById(id);
       if (!el) return;
-      el.addEventListener('pointerdown', (e) => { e.preventDefault(); onDown(); });
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); onDown(); }, { signal });
       if (onUp) {
-        el.addEventListener('pointerup', onUp);
-        el.addEventListener('pointerleave', onUp);
-        el.addEventListener('pointercancel', onUp);
+        el.addEventListener('pointerup', onUp, { signal });
+        el.addEventListener('pointerleave', onUp, { signal });
+        el.addEventListener('pointercancel', onUp, { signal });
       }
     };
     bind('btn-left', () => { this.touchState.left = true; }, () => { this.touchState.left = false; });
@@ -2552,6 +2598,7 @@ class LevelScene extends Phaser.Scene {
     bind('btn-heart', () => { this.touchState.heart = true; });
     bind('btn-flowers', () => { this.touchState.flowers = true; });
     bind('btn-dizzy', () => { this.touchState.dizzy = true; });
+    bind('btn-sing', () => { this.touchState.sing = true; });
   }
 
   startGesture(type) {
@@ -2633,8 +2680,8 @@ class LevelScene extends Phaser.Scene {
       state: this.getKeyboardSoloRestoreState(actor, priorState),
       flipX: actor.sprite.flipX,
     };
-    // INTERIM (band placement held): old 135 / 475..815, converted.
-    actor.keyboardSoloTargetX = Phaser.Math.Clamp(this.player.x - interimX(135), interimX(475), interimX(815));
+    // Staged offset from Manos and clamp range, measured 2026-09-13, fara7_geometry report.
+    actor.keyboardSoloTargetX = Phaser.Math.Clamp(this.player.x - 129.67, 435.21, 761.80);
     actor.state = 'keyboard_solo_walking';
     actor.sprite.setVisible(true);
     actor.sprite.setAlpha(1);
@@ -2832,10 +2879,46 @@ class LevelScene extends Phaser.Scene {
   }
 
   // True once the player's own sprite bounds have fully cleared the canvas's left edge --
-  // measured, not a distance-travelled guess. The camera never scrolls on this stage, so
-  // world x and screen x are the same number.
+  // measured, not a distance-travelled guess. Deliberately WORLD x=0, not the visible edge:
+  // under the Theatre push-in he leaves the view a little before this, and keeping world
+  // x=0 keeps the walk-off/fade timing exactly as it was (C1).
   isPlayerOffscreen() {
     return this.player.getBounds().right < 0;
+  }
+
+  // The one neutral stage camera every level installs: no follow, bounds on the canvas, zoom
+  // 1, default centre origin, parked on the canvas centre (scroll 0,0). Also drops any running
+  // camera effect and the fade listeners of a transition being abandoned (the generation
+  // guard on those callbacks covers anything already queued).
+  resetStageCamera() {
+    const cam = this.cameras.main;
+    cam.resetFX();
+    cam.off('camerafadeoutcomplete');
+    cam.off('camerafadeincomplete');
+    cam.stopFollow();
+    cam.setFollowOffset(0, 0);
+    cam.setZoom(1);
+    cam.setOrigin(0.5, 0.5);
+    cam.setBounds(0, 0, STAGE_VIEW.width, STAGE_VIEW.height);
+    cam.centerOn(STAGE_VIEW.width / 2, STAGE_VIEW.height / 2);
+  }
+
+  // C1: 1 everywhere except an installed Theatre, where it rises linearly with song time.
+  getTheatreZoom(elapsed) {
+    if (!this.level2Active || this.theatreZoomStartElapsed === null) return 1;
+    return Math.min(
+      THEATRE_PUSH_IN_MAX_ZOOM,
+      1 + THEATRE_PUSH_IN_RATE * Math.max(0, elapsed - this.theatreZoomStartElapsed)
+    );
+  }
+
+  // Recomputed from the tick's one sampled song time, like the background frame, so it stays
+  // linear through the reveal, phone sequence and outgoing fade, and follows in-Theatre seeks.
+  // Zoom only: focus stays (640,360) with scroll (0,0) -- no second camera move.
+  updateTheatreCamera(elapsed) {
+    const cam = this.cameras.main;
+    const zoom = this.getTheatreZoom(elapsed);
+    if (cam.zoom !== zoom) cam.setZoom(zoom);
   }
 
   // Cutscene stage 1: one-shot phonePullAnim (character notices the call, reaches for
@@ -2997,7 +3080,11 @@ class LevelScene extends Phaser.Scene {
     this.holdPosition = true;
     this.player.setVelocity(0, 0);
     this.renderLyrics(this.getLevelElapsed());
+    // A restart or a direct level jump bumps the generation, so this destination can never
+    // fire into a scene state it was not captured for.
+    const generation = this.transitionGeneration;
     this.cameras.main.once('camerafadeoutcomplete', () => {
+      if (generation !== this.transitionGeneration) return;
       if (typeof destination === 'function') destination();
     });
     this.cameras.main.fadeOut(600, 10, 14, 26); // matches the page's #0a0e1a background, not pure black
@@ -3020,12 +3107,11 @@ class LevelScene extends Phaser.Scene {
     this.worldMinX = 0;
     this.worldMaxX = STAGE_VIEW.width;
     this.physics.world.setBounds(0, 0, STAGE_VIEW.width, STAGE_VIEW.height);
-    this.cameras.main.stopFollow();
-    this.cameras.main.setFollowOffset(0, 0);
-    this.cameras.main.setBounds(0, 0, STAGE_VIEW.width, STAGE_VIEW.height);
-    this.cameras.main.centerOn(STAGE_VIEW.width / 2, STAGE_VIEW.height / 2);
+    this.transitionGeneration += 1;
+    this.resetStageCamera();
+    // C1: the push-in's song-clock anchor is the moment the Theatre is installed.
+    this.theatreZoomStartElapsed = this.getLevelElapsed();
     this.showLevelBackground('level2_theatre_bg', THEATRE_DEPTH.background);
-    this.projectileForegroundDepth = null;
     this.buildTheatreActors();
 
     this.ground.setPosition(STAGE_VIEW.width / 2, interiorGroundY + 20);
@@ -3058,17 +3144,17 @@ class LevelScene extends Phaser.Scene {
     this.theatreWalkOffSeconds = null;
     this.theatreSingingActive = false;
     this.mSequenceActive = false;
-    this.debugRapidFireAccumMs = 0;
+    this.mHeartBeatIndex = null;
 
     const touch = document.getElementById('touch-controls');
     if (touch) touch.style.removeProperty('display');
 
     this.renderLyrics(this.getLevelElapsed());
+    const generation = this.transitionGeneration;
     this.cameras.main.once('camerafadeincomplete', () => {
-      if (!this.level2Active) return;
+      if (generation !== this.transitionGeneration || !this.level2Active) return;
       this.level2Revealing = false;
       this.renderLyrics(this.getLevelElapsed());
-      if (window.positionCinemaLyrics) window.positionCinemaLyrics();
     });
     this.cameras.main.fadeIn(600, 10, 14, 26);
   }
@@ -3092,13 +3178,12 @@ class LevelScene extends Phaser.Scene {
     this.worldMinX = 0;
     this.worldMaxX = STAGE_VIEW.width;
     this.physics.world.setBounds(0, 0, STAGE_VIEW.width, STAGE_VIEW.height);
-    this.cameras.main.stopFollow();
-    this.cameras.main.setFollowOffset(0, 0);
-    this.cameras.main.setBounds(0, 0, STAGE_VIEW.width, STAGE_VIEW.height);
-    this.cameras.main.centerOn(STAGE_VIEW.width / 2, STAGE_VIEW.height / 2);
+    // C1: neutral camera while fully faded, before Party renders; the push-in ends here.
+    this.transitionGeneration += 1;
+    this.theatreZoomStartElapsed = null;
+    this.resetStageCamera();
 
     this.showLevelBackground('level3_party_bg', PARTY_DEPTH.background);
-    this.projectileForegroundDepth = null;
 
     this.buildPartyActors();
 
@@ -3137,11 +3222,12 @@ class LevelScene extends Phaser.Scene {
     this.heartMarqueeTriggered = false;
     this.partyBgLit = false;
     this.mSequenceActive = false;
-    this.debugRapidFireAccumMs = 0;
+    this.mHeartBeatIndex = null;
 
     this.renderLyrics(this.getLevelElapsed());
+    const generation = this.transitionGeneration;
     this.cameras.main.once('camerafadeincomplete', () => {
-      if (!this.level3Active) return;
+      if (generation !== this.transitionGeneration || !this.level3Active) return;
       this.level3Revealing = false;
       this.renderLyrics(this.getLevelElapsed());
     });
@@ -3185,12 +3271,6 @@ class LevelScene extends Phaser.Scene {
       x: this.player.x + direction * PLAYER_PROJECTILE_SOCKET.forwardBodyHeights * bodyHeight,
       y: this.player.y - PLAYER_PROJECTILE_SOCKET.upBodyHeights * bodyHeight,
     };
-  }
-
-  getProjectileDepth() {
-    return Number.isFinite(this.projectileForegroundDepth)
-      ? this.projectileForegroundDepth + 1
-      : 0;
   }
 
   findDirectionalProjectileTarget(projectile) {
@@ -3240,7 +3320,7 @@ class LevelScene extends Phaser.Scene {
     const texKey = options.textureKey || (isHeart ? 'heart_icon' : 'flowers_icon');
     const icon = this.add.sprite(spawn.x, spawn.y, texKey);
     icon.setFlipX(flip);
-    icon.setDepth(options.depth === undefined ? this.getProjectileDepth() : options.depth);
+    icon.setDepth(options.depth === undefined ? 0 : options.depth);
     const projectile = {
       sprite: icon,
       team,
@@ -3323,6 +3403,73 @@ class LevelScene extends Phaser.Scene {
     }
   }
 
+  // C5: sets each listed musical loop's frame from the song clock. Only sprites whose CURRENT
+  // animation is listed in MUSICAL_LOOP_SUBDIVISIONS and still playing are touched.
+  // setCurrentFrame() emits animationupdate, so the player's frame-anchor listener re-roots
+  // him exactly as a naturally advanced frame would.
+  getMusicalLoopSprites() {
+    return [
+      this.player,
+      ...this.interactiveActors.map((actor) => actor.sprite),
+      ...this.passiveAudience,
+      this.theatreMic && this.theatreMic.sprite,
+      this.partyMic && this.partyMic.sprite,
+      this.theatreKeyboardSolo && this.theatreKeyboardSolo.sprite,
+    ];
+  }
+
+  // Q6 harness seam (C5): one row per LEVEL_POLISH_BEAT_LOOPS entry whose animation is
+  // registered. A loop some active sprite is playing reports the frame that sprite is
+  // DISPLAYING (live: true); otherwise the song-clock formula value (live: false).
+  // heart_emission reports beatIndex instead of frame: the index the M volley logic holds
+  // while it is armed (live: true), else the formula value.
+  //   { category, name, frame | beatIndex, frameCount, subdivisionMs, live }
+  getLevelPolishBeatSnapshot(elapsed = this.getLevelElapsed()) {
+    const sprites = this.getMusicalLoopSprites();
+    const rows = [];
+    for (const { category, name, subdivisionMs } of LEVEL_POLISH_BEAT_LOOPS) {
+      if (category === 'heart_emission') {
+        const live = this.mHeartBeatIndex !== null && this.mHeartBeatIndex !== undefined;
+        const beatIndex = live ? this.mHeartBeatIndex : Math.floor(Math.max(0, elapsed) * 1000 / subdivisionMs);
+        rows.push({ category, name, beatIndex, frameCount: null, subdivisionMs, live });
+        continue;
+      }
+      const animation = this.anims.get(name);
+      if (!animation) continue;
+      const frameCount = animation.frames.length;
+      const sprite = sprites.find((s) => s && s.active && s.anims.isPlaying
+        && s.anims.currentAnim && s.anims.currentAnim.key === name);
+      const frame = sprite
+        ? animation.frames.indexOf(sprite.anims.currentFrame)
+        : musicalLoopFrameIndex(name, frameCount, elapsed);
+      rows.push({ category, name, frame, frameCount, subdivisionMs, live: !!sprite });
+    }
+    return rows;
+  }
+
+  applyMusicalLoopPhases(elapsed) {
+    for (const sprite of this.getMusicalLoopSprites()) {
+      const phase = this.getPhasedFrame(sprite, elapsed);
+      if (phase && phase.actual !== phase.expected) {
+        sprite.anims.setCurrentFrame(sprite.anims.currentAnim.frames[phase.expected]);
+      }
+    }
+  }
+
+  // Also the harness seam: the frame a sprite's musical loop SHOULD show at `elapsed` and the
+  // one it shows now (both 0-based). null when the sprite is not running a listed loop.
+  getPhasedFrame(sprite, elapsed = this.getLevelElapsed()) {
+    const anims = sprite && sprite.active ? sprite.anims : null;
+    const animation = anims && anims.isPlaying ? anims.currentAnim : null;
+    if (!animation || !MUSICAL_LOOP_SUBDIVISIONS[animation.key]) return null;
+    return {
+      key: animation.key,
+      subdivisionMs: MUSICAL_LOOP_SUBDIVISIONS[animation.key],
+      expected: musicalLoopFrameIndex(animation.key, animation.frames.length, elapsed),
+      actual: animation.frames.indexOf(anims.currentFrame),
+    };
+  }
+
   update(time, delta) {
     if (!this.ready) return;
 
@@ -3337,13 +3484,22 @@ class LevelScene extends Phaser.Scene {
     // Single sampled value, reused below for both the lyric lookup and the cutscene
     // stage checks -- see the comment on getLevelElapsed().
     const elapsed = this.getLevelElapsed();
+    // C4: the touch Sing tap is the M key's twin. Both edges are captured HERE, before any
+    // scripted update can change eligibility, and the touch edge is cleared every ready tick,
+    // so a tap made while ineligible is dropped exactly like an ineligible M press. JustDown
+    // is always evaluated (never short-circuited), and OR-ing the two edges makes a
+    // simultaneous M + tap a single toggle.
     const mJustDown = Phaser.Input.Keyboard.JustDown(this.keyM);
+    const singTapped = this.touchState.sing;
+    this.touchState.sing = false;
+    const singToggleRequested = mJustDown || singTapped;
     const mSequenceEligibleAtInput = !this.introActive && !this.level2Revealing && !this.level3Revealing
       && !this.exitSettling && !this.cutsceneActive && !this.gesture && !this.manosDefeated
       && !this.bossSequenceActive;
 
     this.updateIntro(elapsed);
     this.updateLevelBackground(elapsed);
+    this.updateTheatreCamera(elapsed);
     // Level 1: real keyboard solo at 0:50, with the existing phone exit still fixed at
     // 0:53. Theatre owns its separate 1:45 solo and 1:53 phone presentation.
     this.updateStageExit(elapsed, delta);
@@ -3388,9 +3544,9 @@ class LevelScene extends Phaser.Scene {
     const mSequenceEligible = mSequenceEligibleAtInput && !this.introActive && !this.level2Revealing
       && !this.level3Revealing && !this.exitSettling && !this.cutsceneActive && !this.gesture
       && !this.manosDefeated;
-    if (mSequenceEligible && mJustDown) {
+    if (mSequenceEligible && singToggleRequested) {
       this.mSequenceActive = !this.mSequenceActive;
-      if (this.mSequenceActive) this.debugRapidFireAccumMs = 0;
+      if (this.mSequenceActive) this.mHeartBeatIndex = null;
     }
 
     if (this.introActive) {
@@ -3483,24 +3639,25 @@ class LevelScene extends Phaser.Scene {
       }
     }
 
+    // C5: M hearts fire on the song's beat grid, not on a delta accumulator started at the
+    // toggle. One volley per beat-index change, so a stall that skips several beats fires
+    // once, never a catch-up burst. null = re-anchor on the current beat (next boundary fires).
+    const heartBeatIndex = Math.floor(Math.max(0, elapsed) * 1000 / HEART_FIRE_INTERVAL_MS);
     if (this.mSequenceActive && mSequenceEligible) {
       const allActorsDone = this.interactiveActors.every((actor) => (
         actor.hitsReceived >= actor.spec.hitsRequired
         || actor.state === 'keyboard_solo_walking'
         || actor.state === 'keyboard_solo_standing'
       ));
-      if (allActorsDone) {
-        this.debugRapidFireAccumMs = 0;
-      } else {
-        this.debugRapidFireAccumMs += delta;
-        if (this.debugRapidFireAccumMs >= HEART_FIRE_INTERVAL_MS) {
-          this.debugRapidFireAccumMs %= HEART_FIRE_INTERVAL_MS;
-          this.spawnProjectileDirectional('heart', true);
-          this.spawnProjectileDirectional('heart', false);
-        }
+      if (allActorsDone || this.mHeartBeatIndex === null) {
+        this.mHeartBeatIndex = heartBeatIndex;
+      } else if (heartBeatIndex !== this.mHeartBeatIndex) {
+        this.mHeartBeatIndex = heartBeatIndex;
+        this.spawnProjectileDirectional('heart', true);
+        this.spawnProjectileDirectional('heart', false);
       }
     } else {
-      this.debugRapidFireAccumMs = 0;
+      this.mHeartBeatIndex = null;
     }
 
     // Entrances/walk-ins, for whichever cast this.interactiveActors currently holds --
@@ -3516,6 +3673,10 @@ class LevelScene extends Phaser.Scene {
     // Thrown-projectile tick: runs every frame regardless of gesture state, since a
     // projectile keeps flying after its spawning gesture's animation has already ended.
     this.updateProjectiles(delta);
+
+    // C5: every visual swap for this tick has happened (timers, tweens, fades and anim
+    // events all run before scene.update()), so phase the musical loops now.
+    this.applyMusicalLoopPhases(elapsed);
 
     // Last: the texture is now whatever this tick actually selected. See the comment on
     // resizeBodyForTexture() -- calling it before this point reads a stale frame.
@@ -3571,3 +3732,6 @@ window.game = new Phaser.Game({
   },
   scene: [LevelScene],
 });
+// Q6 harness mirrors (top-level const bindings are not window properties).
+window.LEVEL_POLISH_BEAT_LOOPS = LEVEL_POLISH_BEAT_LOOPS;
+window.getLevelPolishBeatSnapshot = (elapsed) => window.game.scene.keys.Level.getLevelPolishBeatSnapshot(elapsed);
