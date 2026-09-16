@@ -619,28 +619,170 @@
       "contentCenterY": 288
     },
     "femme_fatale_idle": {
-      "file": "assets/generated/characters/femme_fatale/femme_fatale_idle_spritesheet.png",
-      "frameWidth": 180,
+      "file": "assets/generated/characters/femme_fatale/art/femme_fatale_idle.png",
+      "frameWidth": 192,
       "frameHeight": 384,
       "frames": 8,
-      "contentLeft": 37,
-      "contentTop": 30,
-      "contentWidth": 106,
-      "contentHeight": 350,
-      "contentCenterX": 90,
-      "contentCenterY": 204
+      "contentLeft": 36,
+      "contentTop": 24,
+      "contentWidth": 139,
+      "contentHeight": 352,
+      "contentCenterX": 106,
+      "contentCenterY": 200,
+      "frameBounds": [
+        [
+          37,
+          24,
+          171,
+          376
+        ],
+        [
+          37,
+          24,
+          174,
+          376
+        ],
+        [
+          36,
+          24,
+          174,
+          376
+        ],
+        [
+          37,
+          24,
+          175,
+          376
+        ],
+        [
+          37,
+          24,
+          172,
+          376
+        ],
+        [
+          36,
+          24,
+          172,
+          376
+        ],
+        [
+          36,
+          24,
+          171,
+          376
+        ],
+        [
+          37,
+          24,
+          172,
+          376
+        ]
+      ],
+      "frameRootY": [
+        376,
+        376,
+        376,
+        376,
+        376,
+        376,
+        376,
+        376
+      ],
+      "bodyReferenceHeight": 352,
+      "anchor": [
+        96,
+        376
+      ],
+      "fixedAnchor": {
+        "refContentHeight": 352,
+        "anchorFrameX": 96,
+        "anchorFrameY": 376
+      },
+      "sha256": "0e51780df395084b99225cef7e7fbfbf4712ad88d3274b0bdb27e51fa4cb0c3e"
     },
     "femme_fatale_entrance": {
-      "file": "assets/generated/characters/femme_fatale/femme_fatale_entrance_spritesheet.png",
-      "frameWidth": 248,
-      "frameHeight": 536,
+      "file": "assets/generated/characters/femme_fatale/art/femme_fatale_entrance.png",
+      "frameWidth": 192,
+      "frameHeight": 384,
       "frames": 8,
-      "contentLeft": 43,
-      "contentTop": 40,
-      "contentWidth": 171,
-      "contentHeight": 493,
-      "contentCenterX": 128,
-      "contentCenterY": 286
+      "contentLeft": 24,
+      "contentTop": 24,
+      "contentWidth": 167,
+      "contentHeight": 352,
+      "contentCenterX": 108,
+      "contentCenterY": 200,
+      "frameBounds": [
+        [
+          25,
+          24,
+          188,
+          376
+        ],
+        [
+          30,
+          24,
+          179,
+          376
+        ],
+        [
+          24,
+          24,
+          181,
+          376
+        ],
+        [
+          29,
+          24,
+          180,
+          376
+        ],
+        [
+          25,
+          24,
+          191,
+          376
+        ],
+        [
+          31,
+          24,
+          182,
+          376
+        ],
+        [
+          27,
+          24,
+          181,
+          376
+        ],
+        [
+          29,
+          24,
+          173,
+          376
+        ]
+      ],
+      "frameRootY": [
+        376,
+        376,
+        376,
+        376,
+        376,
+        376,
+        376,
+        376
+      ],
+      "bodyReferenceHeight": 352,
+      "anchor": [
+        96,
+        376
+      ],
+      "fixedAnchor": {
+        "refContentHeight": 352,
+        "anchorFrameX": 96,
+        "anchorFrameY": 376
+      },
+      "sha256": "65c5f11b54fec6a38c4726f2ce49914005898cf00d89d540e8cd043dce14f0d6"
     },
     "audience_galabeya1_fara7_seated_idle": {
       "file": "assets/generated/characters/audience_galabeya1/audience_galabeya1_fara7_seated_idle_spritesheet.png",
@@ -1124,6 +1266,1172 @@
       "contentHeight": 238,
       "contentCenterX": 209,
       "contentCenterY": 305
+    },
+    "supine_collapse": {
+      "file": "assets/generated/characters/manos/supine_ending_art/collapse_spritesheet.png",
+      "frameWidth": 512,
+      "frameHeight": 512,
+      "frames": 8,
+      "contentLeft": 128,
+      "contentTop": 40,
+      "contentWidth": 303,
+      "contentHeight": 440,
+      "contentCenterX": 280,
+      "contentCenterY": 260,
+      "sha256": "7b8d6599f29b3a54d6b2f564c19b82eab752a888e9ca36182b6f51d3988799ac",
+      "bodyReferenceHeight": 456,
+      "frameRootY": [
+        480,
+        480,
+        480,
+        480,
+        480,
+        480,
+        480,
+        480
+      ],
+      "anchor": [
+        256,
+        480
+      ],
+      "rootX": 620,
+      "groundY": 521.8
+    },
+    "supine_floor_singing": {
+      "file": "assets/generated/characters/manos/supine_ending_art/floor_singing_spritesheet.png",
+      "frameWidth": 512,
+      "frameHeight": 512,
+      "frames": 7,
+      "contentLeft": 154,
+      "contentTop": 318,
+      "contentWidth": 260,
+      "contentHeight": 163,
+      "contentCenterX": 284,
+      "contentCenterY": 400,
+      "sha256": "a767ba6ff92d6fbf82830c54d3fa59046ba6b4816b153d35597b4d3ca35bb1b3",
+      "bodyReferenceHeight": 456,
+      "frameRootY": [
+        480,
+        480,
+        480,
+        480,
+        480,
+        480,
+        480
+      ],
+      "anchor": [
+        256,
+        480
+      ],
+      "rootX": 620,
+      "groundY": 521.8
+    },
+    "terminal_stillness": {
+      "file": "assets/generated/characters/manos/supine_ending_art/terminal_stillness_spritesheet.png",
+      "frameWidth": 512,
+      "frameHeight": 512,
+      "frames": 4,
+      "contentLeft": 138,
+      "contentTop": 318,
+      "contentWidth": 293,
+      "contentHeight": 163,
+      "contentCenterX": 285,
+      "contentCenterY": 400,
+      "sha256": "3cc2fef296f2acd4ce32e1bfe2c04c7ee9834fae72749c34246bc90d79054600",
+      "bodyReferenceHeight": 456,
+      "frameRootY": [
+        480,
+        480,
+        480,
+        480
+      ],
+      "anchor": [
+        256,
+        480
+      ],
+      "rootX": 620,
+      "groundY": 521.8
+    },
+    "floor_hearts": {
+      "file": "assets/generated/characters/manos/supine_ending_art/floor_hearts_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 80,
+      "frames": 16,
+      "contentLeft": 16,
+      "contentTop": 17,
+      "contentWidth": 130,
+      "contentHeight": 50,
+      "contentCenterX": 81,
+      "contentCenterY": 42,
+      "sha256": "a7d666bdaa7be524ed20c7d478d250575e90b77f7707e5310cdaace0d781f0d7",
+      "anchor": [
+        80,
+        40
+      ],
+      "scale": 0.5,
+      "placementGame": [
+        625,
+        439
+      ],
+      "depth": 1,
+      "blendMode": "NORMAL"
+    },
+    "manos_back_ask": {
+      "file": "assets/generated/characters/manos/manos_back_ask/manos_back_ask_spritesheet.png",
+      "frameWidth": 344,
+      "frameHeight": 384,
+      "frames": 8,
+      "contentLeft": 99,
+      "contentTop": 45,
+      "contentWidth": 199,
+      "contentHeight": 332,
+      "contentCenterX": 198,
+      "contentCenterY": 211,
+      "frameBounds": [
+        [
+          100,
+          46,
+          237,
+          377
+        ],
+        [
+          100,
+          47,
+          257,
+          377
+        ],
+        [
+          103,
+          48,
+          292,
+          377
+        ],
+        [
+          109,
+          48,
+          298,
+          377
+        ],
+        [
+          106,
+          46,
+          294,
+          377
+        ],
+        [
+          101,
+          45,
+          265,
+          377
+        ],
+        [
+          100,
+          45,
+          251,
+          377
+        ],
+        [
+          99,
+          46,
+          237,
+          377
+        ]
+      ],
+      "frameRootY": [
+        377,
+        377,
+        377,
+        377,
+        377,
+        377,
+        377,
+        377
+      ],
+      "bodyReferenceHeight": 331,
+      "anchorMode": "footLine",
+      "animKey": "manosBackAskAnim",
+      "repeat": -1,
+      "musicalLoop": false,
+      "sha256": "6f6dcf9713a5c3ffad9764e38cafc8a7a99e52f6211c187f2197d98986f89ef0",
+      "poseGuide": {
+        "file": "assets/generated/characters/manos/pose_guides/manos_back_ask/manos_back_ask_metadata.json",
+        "sha256": "fb37a2118a8686d5f89973b5aa9241c559159824647129bae8cde9c22a6e0685",
+        "sourceCell": {
+          "width": 344,
+          "height": 384
+        },
+        "socketSpace": "source-frame pixels from top-left"
+      },
+      "fixedAnchor": {
+        "refContentHeight": 331,
+        "anchorFrameX": 172,
+        "anchorFrameY": 377
+      }
+    },
+    "manos_back_receive": {
+      "file": "assets/generated/characters/manos/manos_back_receive/manos_back_receive_spritesheet.png",
+      "frameWidth": 344,
+      "frameHeight": 384,
+      "frames": 8,
+      "contentLeft": 98,
+      "contentTop": 46,
+      "contentWidth": 226,
+      "contentHeight": 331,
+      "contentCenterX": 211,
+      "contentCenterY": 211,
+      "frameBounds": [
+        [
+          99,
+          46,
+          242,
+          377
+        ],
+        [
+          98,
+          47,
+          288,
+          377
+        ],
+        [
+          98,
+          48,
+          324,
+          377
+        ],
+        [
+          99,
+          48,
+          301,
+          377
+        ],
+        [
+          101,
+          47,
+          280,
+          377
+        ],
+        [
+          103,
+          46,
+          259,
+          377
+        ],
+        [
+          102,
+          46,
+          241,
+          377
+        ],
+        [
+          104,
+          46,
+          238,
+          377
+        ]
+      ],
+      "frameRootY": [
+        377,
+        377,
+        377,
+        377,
+        377,
+        377,
+        377,
+        377
+      ],
+      "bodyReferenceHeight": 331,
+      "anchorMode": "footLine",
+      "animKey": "manosBackReceiveAnim",
+      "repeat": 0,
+      "terminalHold": true,
+      "cassetteSocket": true,
+      "sha256": "c4e614eeefbb9a7009ed674336d79758b596c51fb19ddc0cdfcd73fc60d06605",
+      "poseGuide": {
+        "file": "assets/generated/characters/manos/pose_guides/manos_back_receive/manos_back_receive_metadata.json",
+        "sha256": "dcbaff457e73e3da8a3c977336fa165e71aab39da6018ff9ba7e1e28885ddf04",
+        "sourceCell": {
+          "width": 344,
+          "height": 384
+        },
+        "socketSpace": "source-frame pixels from top-left",
+        "cassetteSockets": [
+          {
+            "frame": 0,
+            "x": 222.0,
+            "y": 226.0,
+            "state": "open",
+            "hand": "right",
+            "prop_drawn": false
+          },
+          {
+            "frame": 1,
+            "x": 270.0,
+            "y": 149.0,
+            "state": "open",
+            "hand": "right",
+            "prop_drawn": false
+          },
+          {
+            "frame": 2,
+            "x": 300.0,
+            "y": 149.0,
+            "state": "open",
+            "hand": "right",
+            "prop_drawn": false
+          },
+          {
+            "frame": 3,
+            "x": 290.0,
+            "y": 150.0,
+            "state": "closing",
+            "hand": "right",
+            "prop_drawn": false
+          },
+          {
+            "frame": 4,
+            "x": 264.0,
+            "y": 146.0,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": false
+          },
+          {
+            "frame": 5,
+            "x": 245.0,
+            "y": 134.0,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": false
+          },
+          {
+            "frame": 6,
+            "x": 211.0,
+            "y": 164.0,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": false
+          },
+          {
+            "frame": 7,
+            "x": 202.0,
+            "y": 164.0,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": false
+          }
+        ]
+      },
+      "fixedAnchor": {
+        "refContentHeight": 331,
+        "anchorFrameX": 172.0,
+        "anchorFrameY": 377
+      }
+    },
+    "manos_back_listen": {
+      "file": "assets/generated/characters/manos/manos_back_listen/manos_back_listen_spritesheet.png",
+      "frameWidth": 344,
+      "frameHeight": 384,
+      "frames": 8,
+      "contentLeft": 95,
+      "contentTop": 38,
+      "contentWidth": 169,
+      "contentHeight": 339,
+      "contentCenterX": 179,
+      "contentCenterY": 207,
+      "frameBounds": [
+        [
+          101,
+          38,
+          259,
+          377
+        ],
+        [
+          103,
+          41,
+          257,
+          377
+        ],
+        [
+          103,
+          45,
+          264,
+          377
+        ],
+        [
+          101,
+          41,
+          258,
+          377
+        ],
+        [
+          102,
+          38,
+          260,
+          377
+        ],
+        [
+          100,
+          41,
+          258,
+          377
+        ],
+        [
+          95,
+          45,
+          259,
+          377
+        ],
+        [
+          100,
+          38,
+          259,
+          377
+        ]
+      ],
+      "frameRootY": [
+        377,
+        377,
+        377,
+        377,
+        377,
+        377,
+        377,
+        377
+      ],
+      "bodyReferenceHeight": 336,
+      "anchorMode": "footLine",
+      "animKey": "manosBackListenAnim",
+      "repeat": -1,
+      "musicalLoop": true,
+      "subdivision": "sixteenth",
+      "sha256": "d9bc1593a3554a2074d285fc037db4574800c24775ef2c3f7531e751d43cd6b6",
+      "poseGuide": {
+        "file": "assets/generated/characters/manos/pose_guides/manos_back_listen/manos_back_listen_metadata.json",
+        "sha256": "ce4a3021b57ffa2379577c7458d63b69098ec6ea726a51e834e939d0b614a9e1",
+        "sourceCell": {
+          "width": 344,
+          "height": 384
+        },
+        "socketSpace": "source-frame pixels from top-left",
+        "walkmanSockets": [
+          {
+            "frame": 0,
+            "x": 224,
+            "y": 210,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": true
+          },
+          {
+            "frame": 1,
+            "x": 225,
+            "y": 211,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": true
+          },
+          {
+            "frame": 2,
+            "x": 226,
+            "y": 212,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": true
+          },
+          {
+            "frame": 3,
+            "x": 225,
+            "y": 211,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": true
+          },
+          {
+            "frame": 4,
+            "x": 224,
+            "y": 210,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": true
+          },
+          {
+            "frame": 5,
+            "x": 223,
+            "y": 211,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": true
+          },
+          {
+            "frame": 6,
+            "x": 222,
+            "y": 212,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": true
+          },
+          {
+            "frame": 7,
+            "x": 224,
+            "y": 210,
+            "state": "holding",
+            "hand": "right",
+            "prop_drawn": true
+          }
+        ]
+      },
+      "fixedAnchor": {
+        "refContentHeight": 331,
+        "anchorFrameX": 172,
+        "anchorFrameY": 377
+      }
+    },
+    "shopkeeper_idle_lean": {
+      "file": "assets/generated/characters/shopkeeper/shopkeeper_idle_lean/shopkeeper_idle_lean_spritesheet.png",
+      "frameWidth": 320,
+      "frameHeight": 320,
+      "frames": 4,
+      "contentLeft": 54,
+      "contentTop": 46,
+      "contentWidth": 170,
+      "contentHeight": 207,
+      "contentCenterX": 139,
+      "contentCenterY": 149,
+      "frameBounds": [
+        [
+          54,
+          47,
+          220,
+          253
+        ],
+        [
+          56,
+          46,
+          221,
+          252
+        ],
+        [
+          55,
+          47,
+          220,
+          253
+        ],
+        [
+          56,
+          47,
+          224,
+          253
+        ]
+      ],
+      "frameRootY": [
+        253,
+        252,
+        253,
+        253
+      ],
+      "bodyReferenceHeight": 206,
+      "anchorMode": "declared",
+      "animKey": "shopkeeperIdleLeanAnim",
+      "repeat": -1,
+      "musicalLoop": true,
+      "subdivision": "eighth",
+      "sha256": "9c415a5820f0684b756147b711a634d2d1cefbec433e8adab8105782ad4ab5af",
+      "fixedAnchor": {
+        "refContentHeight": 203,
+        "anchorFrameX": 219.0,
+        "anchorFrameY": 242.0
+      },
+      "anchor": {
+        "mode": "declared",
+        "point": [
+          219,
+          242
+        ],
+        "space": "cell pixels from top-left",
+        "minAlphaAtAnchor": 255,
+        "perFrameAlphaAtAnchor": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "referenceSheet": "shopkeeper_idle_lean",
+        "source": "derived",
+        "derivedFrom": "shopkeeper_handover registration.fixedAnchorPx [219, 242]",
+        "method": "both v2 shopkeeper sheets share the direct counter-hand anchor [219, 242] with offset (0, 0)",
+        "offsetFromReferencePx": [
+          0,
+          0
+        ],
+        "landmarkFrame": 0,
+        "landmarksPx": {
+          "headCentroid": [
+            133.849,
+            91.089
+          ],
+          "glassesCentroid": [
+            138.492,
+            86.525
+          ],
+          "headRelAnchor": [
+            -85.151,
+            -150.911
+          ],
+          "glassesRelAnchor": [
+            -80.508,
+            -155.475
+          ]
+        }
+      }
+    },
+    "shopkeeper_handover": {
+      "file": "assets/generated/characters/shopkeeper/shopkeeper_handover/shopkeeper_handover_spritesheet.png",
+      "frameWidth": 320,
+      "frameHeight": 320,
+      "frames": 8,
+      "contentLeft": 20,
+      "contentTop": 47,
+      "contentWidth": 220,
+      "contentHeight": 200,
+      "contentCenterX": 130,
+      "contentCenterY": 147,
+      "frameBounds": [
+        [
+          46,
+          48,
+          239,
+          247
+        ],
+        [
+          64,
+          48,
+          239,
+          247
+        ],
+        [
+          73,
+          48,
+          239,
+          247
+        ],
+        [
+          47,
+          48,
+          239,
+          247
+        ],
+        [
+          24,
+          47,
+          240,
+          247
+        ],
+        [
+          22,
+          47,
+          239,
+          247
+        ],
+        [
+          20,
+          47,
+          240,
+          247
+        ],
+        [
+          46,
+          47,
+          240,
+          247
+        ]
+      ],
+      "frameRootY": [
+        247,
+        247,
+        247,
+        247,
+        247,
+        247,
+        247,
+        247
+      ],
+      "bodyReferenceHeight": 200,
+      "anchorMode": "declared",
+      "animKey": "shopkeeperHandoverAnim",
+      "repeat": 0,
+      "terminalHold": true,
+      "cassetteSocket": true,
+      "sha256": "5443d37b179dc6fd12bd3ad90c421ce4fbb398ad0415da48a8c55fd0f73dbac8",
+      "poseGuide": {
+        "file": "assets/generated/characters/shopkeeper/shopkeeper_handover/shopkeeper_handover_metadata.json",
+        "sha256": "df05404d954994aec7a87638848d923e407194af8c9fe4843164ff9ae931a9db",
+        "sourceCell": {
+          "width": 320,
+          "height": 320
+        },
+        "socketSpace": "source-frame pixels from top-left",
+        "registrationAnchorPx": [
+          219,
+          242
+        ],
+        "measuredAnchorVariancePx": [
+          0,
+          0
+        ],
+        "cassetteSockets": [
+          {
+            "frame": 0,
+            "x": 127.0,
+            "y": 188.0,
+            "state": "empty"
+          },
+          {
+            "frame": 1,
+            "x": 131.0,
+            "y": 186.0,
+            "state": "empty"
+          },
+          {
+            "frame": 2,
+            "x": 143.0,
+            "y": 220.0,
+            "state": "empty",
+            "occluded": true
+          },
+          {
+            "frame": 3,
+            "x": 62.0,
+            "y": 133.0,
+            "state": "holding"
+          },
+          {
+            "frame": 4,
+            "x": 44.0,
+            "y": 133.0,
+            "state": "holding"
+          },
+          {
+            "frame": 5,
+            "x": 41.0,
+            "y": 134.0,
+            "state": "holding"
+          },
+          {
+            "frame": 6,
+            "x": 40.0,
+            "y": 132.0,
+            "state": "releasing"
+          },
+          {
+            "frame": 7,
+            "x": 128.0,
+            "y": 189.0,
+            "state": "empty"
+          }
+        ]
+      },
+      "fixedAnchor": {
+        "refContentHeight": 203,
+        "anchorFrameX": 219.0,
+        "anchorFrameY": 242.0
+      },
+      "anchor": {
+        "mode": "declared",
+        "point": [
+          219,
+          242
+        ],
+        "space": "cell pixels from top-left",
+        "minAlphaAtAnchor": 255,
+        "perFrameAlphaAtAnchor": [
+          255,
+          255,
+          255,
+          255,
+          255,
+          255,
+          255,
+          255
+        ],
+        "referenceSheet": "shopkeeper_idle_lean",
+        "source": "authored",
+        "sourceFile": "assets/generated/characters/shopkeeper/shopkeeper_handover/shopkeeper_handover_metadata.json",
+        "sourceField": "registration.fixedAnchorPx",
+        "offsetFromReferencePx": [
+          0,
+          0
+        ],
+        "landmarkFrame": 0,
+        "landmarksPx": {
+          "headCentroid": [
+            133.171,
+            91.426
+          ],
+          "glassesCentroid": [
+            138.298,
+            87.034
+          ],
+          "headRelAnchor": [
+            -85.829,
+            -150.574
+          ],
+          "glassesRelAnchor": [
+            -80.702,
+            -154.966
+          ]
+        },
+        "pairResidualPx": {
+          "headRelAnchor": [
+            -0.678,
+            0.338
+          ],
+          "glassesRelAnchor": [
+            -0.194,
+            0.508
+          ]
+        },
+        "pairTolerancePx": 1.0
+      }
+    },
+    "level0_shop_bg": {
+      "files": [
+        "assets/game/environments/level0_shop/frame_00.png",
+        "assets/game/environments/level0_shop/frame_01.png",
+        "assets/game/environments/level0_shop/frame_02.png",
+        "assets/game/environments/level0_shop/frame_03.png",
+        "assets/game/environments/level0_shop/frame_04.png",
+        "assets/game/environments/level0_shop/frame_05.png",
+        "assets/game/environments/level0_shop/frame_06.png",
+        "assets/game/environments/level0_shop/frame_07.png"
+      ],
+      "frameWidth": 1280,
+      "frameHeight": 720,
+      "frames": 8,
+      "sha256": {
+        "assets/game/environments/level0_shop/frame_00.png": "01e8f131bcb7c506fbcbd30dfcb5131f11043c7e69322076fec57cb687e1dc46",
+        "assets/game/environments/level0_shop/frame_01.png": "287ad6349b111ef0fe7b04e8725795e0c0dcb7e6ddbf08714723d0bd0b7a2dd8",
+        "assets/game/environments/level0_shop/frame_02.png": "93a058cfdc183a4f07f446d1ffe000321e0fe712c5a06d2c6a204b71261d7bff",
+        "assets/game/environments/level0_shop/frame_03.png": "e90935eadb9ae015d5132723b7442e47cbef8bd7387594a9f070750e33681c45",
+        "assets/game/environments/level0_shop/frame_04.png": "910af46f88b5a60339b9f39d018f12b14acf93df255048c290615cac5f9c419a",
+        "assets/game/environments/level0_shop/frame_05.png": "26128ccbd3975d4ab739870217e9c12459e05fdb07c56492d43d909daa369693",
+        "assets/game/environments/level0_shop/frame_06.png": "ebe708f7d651592312c50c16c3d06da651190297d9a58a89f39031d80df5a7cc",
+        "assets/game/environments/level0_shop/frame_07.png": "31245d2f70fd4a555ba9d8ee601a73bd1091c23b71d3596f8b86655f6f2a99d4"
+      }
+    },
+    "level0_counter_fg": {
+      "files": [
+        "assets/game/environments/level0_shop/counter_foreground_00.png",
+        "assets/game/environments/level0_shop/counter_foreground_01.png",
+        "assets/game/environments/level0_shop/counter_foreground_02.png",
+        "assets/game/environments/level0_shop/counter_foreground_03.png",
+        "assets/game/environments/level0_shop/counter_foreground_04.png",
+        "assets/game/environments/level0_shop/counter_foreground_05.png",
+        "assets/game/environments/level0_shop/counter_foreground_06.png",
+        "assets/game/environments/level0_shop/counter_foreground_07.png"
+      ],
+      "frameWidth": 1280,
+      "frameHeight": 720,
+      "frames": 8,
+      "perFrame": true,
+      "alpha": [
+        {
+          "alphaThresholdExclusive": 8,
+          "nonEmptyPixels": 110845,
+          "transparentPixels": 810755
+        },
+        {
+          "alphaThresholdExclusive": 8,
+          "nonEmptyPixels": 110845,
+          "transparentPixels": 810755
+        },
+        {
+          "alphaThresholdExclusive": 8,
+          "nonEmptyPixels": 110845,
+          "transparentPixels": 810755
+        },
+        {
+          "alphaThresholdExclusive": 8,
+          "nonEmptyPixels": 110845,
+          "transparentPixels": 810755
+        },
+        {
+          "alphaThresholdExclusive": 8,
+          "nonEmptyPixels": 110845,
+          "transparentPixels": 810755
+        },
+        {
+          "alphaThresholdExclusive": 8,
+          "nonEmptyPixels": 110845,
+          "transparentPixels": 810755
+        },
+        {
+          "alphaThresholdExclusive": 8,
+          "nonEmptyPixels": 110845,
+          "transparentPixels": 810755
+        },
+        {
+          "alphaThresholdExclusive": 8,
+          "nonEmptyPixels": 110845,
+          "transparentPixels": 810755
+        }
+      ],
+      "sha256": {
+        "assets/game/environments/level0_shop/counter_foreground_00.png": "81e561c8b2072ae5b863d5584e86f212b366b63f535b788ab166b707678623c6",
+        "assets/game/environments/level0_shop/counter_foreground_01.png": "81e561c8b2072ae5b863d5584e86f212b366b63f535b788ab166b707678623c6",
+        "assets/game/environments/level0_shop/counter_foreground_02.png": "81e561c8b2072ae5b863d5584e86f212b366b63f535b788ab166b707678623c6",
+        "assets/game/environments/level0_shop/counter_foreground_03.png": "81e561c8b2072ae5b863d5584e86f212b366b63f535b788ab166b707678623c6",
+        "assets/game/environments/level0_shop/counter_foreground_04.png": "81e561c8b2072ae5b863d5584e86f212b366b63f535b788ab166b707678623c6",
+        "assets/game/environments/level0_shop/counter_foreground_05.png": "81e561c8b2072ae5b863d5584e86f212b366b63f535b788ab166b707678623c6",
+        "assets/game/environments/level0_shop/counter_foreground_06.png": "81e561c8b2072ae5b863d5584e86f212b366b63f535b788ab166b707678623c6",
+        "assets/game/environments/level0_shop/counter_foreground_07.png": "81e561c8b2072ae5b863d5584e86f212b366b63f535b788ab166b707678623c6"
+      }
+    },
+    "level0_manos_cassette": {
+      "file": "assets/game/props/level0_manos_cassette.png",
+      "width": 44,
+      "height": 64,
+      "alpha": {
+        "alphaThresholdExclusive": 8,
+        "nonEmptyPixels": 2812,
+        "transparentPixels": 4
+      },
+      "sha256": "e6b32e61952b1a3fa5d3cc9fe23122b8838f5e95ab2762bf5be134e74de567d4"
+    },
+    "level0_cutscene_pov": {
+      "file": "assets/game/cutscenes/level0/pov.mp4",
+      "files": [
+        "assets/game/cutscenes/level0/pov.mp4",
+        "assets/game/cutscenes/level0/pov_poster.png"
+      ],
+      "poster": "assets/game/cutscenes/level0/pov_poster.png",
+      "durationSeconds": 8.041667,
+      "sizeBytes": {
+        "video": 2475282,
+        "poster": 424877
+      },
+      "videoMetadata": {
+        "codec": "h264",
+        "pixelFormat": "yuv420p",
+        "width": 1280,
+        "height": 720,
+        "frameRate": "24/1",
+        "constantFrameRate": true,
+        "audioStreams": 0,
+        "fastStart": true
+      },
+      "sha256": {
+        "assets/game/cutscenes/level0/pov.mp4": "ed20efe5b795ec498731cdcaa0baee24ea114a27d6018b5545ce24e5f52f4dee",
+        "assets/game/cutscenes/level0/pov_poster.png": "c981212e4252e5c22a37bf030f1794763c9e44b4f1da59818bb8774b234418f2"
+      }
+    },
+    "level0_cutscene_headphones": {
+      "file": "assets/game/cutscenes/level0/headphones.mp4",
+      "files": [
+        "assets/game/cutscenes/level0/headphones.mp4",
+        "assets/game/cutscenes/level0/headphones_poster.png"
+      ],
+      "poster": "assets/game/cutscenes/level0/headphones_poster.png",
+      "durationSeconds": 5.806452,
+      "sizeBytes": {
+        "video": 1675898,
+        "poster": 462711
+      },
+      "videoMetadata": {
+        "codec": "h264",
+        "pixelFormat": "yuv420p",
+        "width": 1280,
+        "height": 720,
+        "frameRate": "4309/180",
+        "constantFrameRate": true,
+        "audioStreams": 0,
+        "fastStart": true
+      },
+      "sha256": {
+        "assets/game/cutscenes/level0/headphones.mp4": "586420545feff13eb925f483896554c3f38fac918b5d66517d4e2ffb47f54c63",
+        "assets/game/cutscenes/level0/headphones_poster.png": "67c2d02a7e8f2b42306a1725ce918540ebffbacb4e09dcd4a548923b4c0fde21"
+      }
+    },
+    "level1_fara7_crowd": {
+      "files": [
+        "assets/game/environments/level1_fara7_crowd/frame_00.png",
+        "assets/game/environments/level1_fara7_crowd/frame_01.png",
+        "assets/game/environments/level1_fara7_crowd/frame_02.png",
+        "assets/game/environments/level1_fara7_crowd/frame_03.png",
+        "assets/game/environments/level1_fara7_crowd/frame_04.png",
+        "assets/game/environments/level1_fara7_crowd/frame_05.png",
+        "assets/game/environments/level1_fara7_crowd/frame_06.png",
+        "assets/game/environments/level1_fara7_crowd/frame_07.png"
+      ],
+      "frames": 8,
+      "frameWidth": 1280,
+      "frameHeight": 720
+    },
+    "level3_party_crowd": {
+      "files": [
+        "assets/game/environments/level3_party/crowd_foreground_00.png",
+        "assets/game/environments/level3_party/crowd_foreground_01.png",
+        "assets/game/environments/level3_party/crowd_foreground_02.png",
+        "assets/game/environments/level3_party/crowd_foreground_03.png",
+        "assets/game/environments/level3_party/crowd_foreground_04.png",
+        "assets/game/environments/level3_party/crowd_foreground_05.png",
+        "assets/game/environments/level3_party/crowd_foreground_06.png",
+        "assets/game/environments/level3_party/crowd_foreground_07.png"
+      ],
+      "frameWidth": 1280,
+      "frameHeight": 720,
+      "frames": 8
+    },
+    "femme_fatale_kiss": {
+      "file": "assets/generated/characters/femme_fatale/art/femme_fatale_kiss.png",
+      "frameWidth": 192,
+      "frameHeight": 384,
+      "frames": 10,
+      "contentLeft": 37,
+      "contentTop": 24,
+      "contentWidth": 125,
+      "contentHeight": 352,
+      "contentCenterX": 100,
+      "contentCenterY": 200,
+      "frameBounds": [
+        [
+          37,
+          24,
+          152,
+          376
+        ],
+        [
+          39,
+          24,
+          155,
+          376
+        ],
+        [
+          37,
+          24,
+          154,
+          376
+        ],
+        [
+          38,
+          24,
+          153,
+          376
+        ],
+        [
+          39,
+          24,
+          154,
+          376
+        ],
+        [
+          38,
+          24,
+          154,
+          376
+        ],
+        [
+          37,
+          24,
+          152,
+          376
+        ],
+        [
+          40,
+          24,
+          153,
+          376
+        ],
+        [
+          39,
+          24,
+          153,
+          376
+        ],
+        [
+          39,
+          24,
+          162,
+          376
+        ]
+      ],
+      "frameRootY": [
+        376,
+        376,
+        376,
+        376,
+        376,
+        376,
+        376,
+        376,
+        376,
+        376
+      ],
+      "bodyReferenceHeight": 352,
+      "anchor": [
+        96,
+        376
+      ],
+      "fixedAnchor": {
+        "refContentHeight": 352,
+        "anchorFrameX": 96,
+        "anchorFrameY": 376
+      },
+      "sha256": "81837c8586cb24af4aca1e8cca6fd484bfeeeb77dc92cb4fa76e080076e42e58"
+    },
+    "femme_fatale_final": {
+      "file": "assets/generated/characters/femme_fatale/art/femme_fatale_final.png",
+      "frameWidth": 192,
+      "frameHeight": 384,
+      "frames": 4,
+      "contentLeft": 27,
+      "contentTop": 24,
+      "contentWidth": 158,
+      "contentHeight": 352,
+      "contentCenterX": 106,
+      "contentCenterY": 200,
+      "frameBounds": [
+        [
+          33,
+          24,
+          185,
+          376
+        ],
+        [
+          32,
+          24,
+          184,
+          376
+        ],
+        [
+          29,
+          24,
+          180,
+          376
+        ],
+        [
+          27,
+          24,
+          179,
+          376
+        ]
+      ],
+      "frameRootY": [
+        376,
+        376,
+        376,
+        376
+      ],
+      "bodyReferenceHeight": 352,
+      "anchor": [
+        96,
+        376
+      ],
+      "fixedAnchor": {
+        "refContentHeight": 352,
+        "anchorFrameX": 96,
+        "anchorFrameY": 376
+      },
+      "sha256": "0608820a10b9193fc936ca91b8316843d522faea9a736475021e263e0bcc68bc"
     }
   },
   "level1": {
@@ -1398,6 +2706,46 @@
           350
         ],
         "rootPolicy": "floorContact"
+      },
+      "supine_collapse": {
+        "sha256": "7b8d6599f29b3a54d6b2f564c19b82eab752a888e9ca36182b6f51d3988799ac",
+        "bodyReferenceHeight": 456,
+        "frameRootY": [
+          480,
+          480,
+          480,
+          480,
+          480,
+          480,
+          480,
+          480
+        ],
+        "rootPolicy": "fixedRoot"
+      },
+      "supine_floor_singing": {
+        "sha256": "a767ba6ff92d6fbf82830c54d3fa59046ba6b4816b153d35597b4d3ca35bb1b3",
+        "bodyReferenceHeight": 456,
+        "frameRootY": [
+          480,
+          480,
+          480,
+          480,
+          480,
+          480,
+          480
+        ],
+        "rootPolicy": "fixedRoot"
+      },
+      "terminal_stillness": {
+        "sha256": "3cc2fef296f2acd4ce32e1bfe2c04c7ee9834fae72749c34246bc90d79054600",
+        "bodyReferenceHeight": 456,
+        "frameRootY": [
+          480,
+          480,
+          480,
+          480
+        ],
+        "rootPolicy": "fixedRoot"
       }
     }
   }

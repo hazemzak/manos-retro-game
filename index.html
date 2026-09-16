@@ -224,11 +224,11 @@
      added here. */
   .ltr-iso { unicode-bidi: isolate; direction: ltr; display: inline-block; }
 
-  /* World-anchored lyric boxes (#cinema-screen-lyrics, #heart-lyrics). Each box is laid out
+   /* World-anchored lyric boxes (#cinema-screen-lyrics, #heart-lyrics, #party-lyrics). Each box is laid out
      in 1280x720 DESIGN px (width/height/font-size set by fitWorldLyric() below) and moved
      onto the stage by one transform from positionWorldLyrics(): translate to the
      camera-projected screen point, scale by canvas scale x camera zoom, origin top-left. */
-  #cinema-screen-lyrics, #heart-lyrics {
+   #cinema-screen-lyrics, #cinema-screen-lyrics-dark, #cinema-screen-lyrics-white, #heart-lyrics, #party-lyrics {
     left: 0;
     top: 0;
     transform-origin: 0 0;
@@ -237,7 +237,7 @@
      Level 2 Theatre, shown for real song lyrics during the song-clock 60s-134.38s window
      (see src/game.js's renderLyrics()). Upper placement is deliberate: it keeps clear of a
      jumping player (see plan geometry) without an occlusion mask. */
-  #cinema-screen-lyrics {
+  #cinema-screen-lyrics, #cinema-screen-lyrics-dark, #cinema-screen-lyrics-white {
     position: fixed;
     z-index: 9;
     display: flex;
@@ -248,12 +248,6 @@
     padding: 0;
     border: 0;
     background: transparent;
-    /* Was #2b241b (dark brown), calibrated for the retired light cinema-hall screen.
-       The Level 2 Theatre background this now overlays is dark throughout (measured
-       mean luminance 78-106 across every candidate placement) -- a dark-brown fill has
-       no usable contrast anywhere on it. Light cream reads clearly against the dark
-       stage/curtain art instead. */
-    color: #f5e6c8;
     font-family: 'ManosLyrics', sans-serif;
     font-size: 22px;
     line-height: 1.25;
@@ -267,7 +261,24 @@
     user-select: none;
     text-shadow: none;
   }
-  #cinema-screen-lyrics[hidden] { display: none; }
+  #cinema-screen-lyrics {
+    /* Was #2b241b (dark brown), calibrated for the retired light cinema-hall screen.
+       The Level 2 Theatre background this now overlays is dark throughout (measured
+       mean luminance 78-106 across every candidate placement) -- a dark-brown fill has
+       no usable contrast anywhere on it. Light cream reads clearly against the dark
+       stage/curtain art instead. */
+    color: #f5e6c8;
+  }
+  /* Theatre reactive ink: the same line in three passes, clipped to disjoint regions by
+     positionWorldLyrics() -- cream where no beam light falls, white on lit backdrop darker
+     than luminance 0.17913, black on lit backdrop at or above it. */
+  #cinema-screen-lyrics-white {
+    color: #ffffff;
+  }
+  #cinema-screen-lyrics-dark {
+    color: #000000;
+  }
+  #cinema-screen-lyrics[hidden], #cinema-screen-lyrics-dark[hidden], #cinema-screen-lyrics-white[hidden] { display: none; }
   /* Level 1 lyrics inside the lit heart marquee of the Fara7 background (replaces
      #lyric-bubble in Fara7 only). Warm yellow #FFD54A on the heart's dark red (~#5a0a0a) is
      ~10:1 contrast. Same flat 8-bit treatment as the cinema screen: no shadow, no box. */
@@ -296,7 +307,36 @@
     user-select: none;
     text-shadow: none;
   }
-  #heart-lyrics[hidden] { display: none; }
+   #heart-lyrics[hidden] { display: none; }
+
+   /* Party banner lyrics: owner-selected near-black ink on the untouched banner. The scoped
+      4.5:1 floor is measured across all eight banner frames. */
+   #party-lyrics {
+     position: fixed;
+     z-index: 9;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     box-sizing: border-box;
+     margin: 0;
+     padding: 0;
+     border: 0;
+     background: transparent;
+     color: #0A060C;
+     font-family: 'ManosLyrics', sans-serif;
+     font-size: 22px;
+     line-height: 1.2;
+     text-align: center;
+     direction: rtl;
+     unicode-bidi: isolate;
+     white-space: nowrap;
+     overflow-wrap: normal;
+     overflow: hidden;
+     pointer-events: none;
+     user-select: none;
+     text-shadow: none;
+   }
+   #party-lyrics[hidden] { display: none; }
 
   /* Inert credits-scroll overlay -- hidden by default, positioned via JS to cover the
      rendered canvas area under Scale.FIT letterboxing. Styled as a fixed overlay matching
@@ -314,13 +354,131 @@
     user-select: none;
   }
   #credits-overlay[hidden] { display: none; }
+  /* Level 0 cutscene media layer (src/game.js openIntroMedia()). Opaque, fitted to the rendered
+     canvas rect by positionIntroOverlays(); the poster sits behind a muted inline video that is
+     only revealed (opacity) once it is decoding at the right position. Below the lyric boxes
+     (9), touch/volume (10), phone (11) and credits (12); never intercepts input. */
+  #intro-cutscene {
+    position: fixed;
+    z-index: 8;
+    background: #000;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+  }
+  #intro-cutscene[hidden], #intro-cutscene img[hidden] { display: none; }
+  #intro-cutscene img, #intro-cutscene video {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    image-rendering: pixelated;
+    pointer-events: none;
+  }
+  #intro-cutscene video { opacity: 0; }
+  /* Level 0 comic speech bubbles (src/game.js setIntroCaption()): pixel-art comic panel
+     speech bubbles anchored to actor heads in stage space. Off-white fill, crisp 3px ink outline,
+     square-ish corners, Arabic typography, scaled via cqw against #intro-dialogue-container. */
+  #intro-dialogue-container {
+    position: fixed;
+    pointer-events: none;
+    z-index: 10;
+    container-type: inline-size;
+  }
+  #intro-dialogue {
+    position: absolute;
+    margin: 0;
+    z-index: 10;
+    box-sizing: border-box;
+    padding: 0.6cqw 1.3cqw;
+    background: #faf6ee;
+    border: 3px solid #1a1612;
+    border-radius: 4px;
+    color: #1a1612;
+    font-family: 'ManosLyrics', sans-serif;
+    font-size: 2.3cqw;
+    line-height: 1.25;
+    white-space: nowrap;
+    direction: rtl;
+    unicode-bidi: isolate;
+    pointer-events: none;
+    user-select: none;
+    text-shadow: none;
+    box-shadow: none;
+    transform: translate(-50%, -100%);
+    animation: bubble-pop 110ms ease-out;
+  }
+  #intro-dialogue[hidden] { display: none; }
+
+  /* Comic bubble tails pointing at speaker heads */
+  #intro-dialogue::after {
+    content: '';
+    position: absolute;
+    width: clamp(10px, 1cqw, 14px);
+    height: clamp(10px, 1cqw, 14px);
+    background: #faf6ee;
+  }
+  /* Manos tail: bubble is above-left of head (Manos mark x500); tail at bottom-right points down-right */
+  #intro-dialogue.speaker-manos::after {
+    bottom: -7px;
+    right: 20px;
+    border-right: 3px solid #1a1612;
+    border-bottom: 3px solid #1a1612;
+    transform: rotate(45deg);
+  }
+  /* Shopkeeper tail: bubble is centered above head (shopkeeper mark x812); tail points down */
+  #intro-dialogue.speaker-shopkeeper::after {
+    bottom: -7px;
+    left: 50%;
+    margin-left: -6px;
+    border-right: 3px solid #1a1612;
+    border-bottom: 3px solid #1a1612;
+    transform: rotate(45deg);
+  }
+
+  @keyframes bubble-pop {
+    from {
+      transform: translate(-50%, -100%) scale(0.9);
+      opacity: 0.7;
+    }
+    to {
+      transform: translate(-50%, -100%) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #intro-dialogue {
+      animation: none !important;
+    }
+  }
+  /* Sizes are in cqw of the overlay, which is fitted to the canvas: 1cqw = 12.8 stage px,
+     so the credits scale with the game instead of staying 18 CSS px on every screen. */
+  #credits-overlay { container-type: inline-size; }
   #credits-content {
     color: #f4e9d8;
     font-family: 'ManosLyrics', sans-serif;
-    font-size: 18px;
+    font-size: 1.6cqw;
     text-align: center;
-    line-height: 1.4;
+    line-height: 1.35;
   }
+  #credits-content p { margin: 0; }
+  .cr-block { margin: 0 0 7cqw; }
+  .cr-role { color: #c9a45c; font-size: 1.25cqw; letter-spacing: 0.18em; text-transform: uppercase; margin-top: 1.4cqw !important; }
+  .cr-name { font-size: 2.3cqw; text-transform: uppercase; letter-spacing: 0.06em; }
+  .cr-title { margin-bottom: 8cqw; }
+  .cr-song { font-size: 6.5cqw; line-height: 1.2; margin-bottom: 1.8cqw !important; }
+  .cr-song-latin { font-size: 2.5cqw; letter-spacing: 0.25em; text-transform: uppercase; color: #c9a45c; }
+  .cr-artist { font-size: 3.6cqw; letter-spacing: 0.2em; }
+  .cr-sponsor { display: inline-block; background: #f4e9d8; border-radius: 1cqw; padding: 1.6cqw 2.4cqw; margin: 1.6cqw 0; }
+  .cr-sponsor img { display: block; width: 34cqw; height: auto; }
+  .cr-logo { display: block; margin: 1.4cqw auto 0; width: 17cqw; height: auto; }
+  .cr-mark { width: 6cqw; }
+  .cr-role-tight { margin-top: 0 !important; }
+  #credits-content { font-variant-ligatures: none; font-kerning: none; }
 </style>
 </head>
 <body>
@@ -344,7 +502,10 @@
 </div>
 <div id="lyric-bubble" hidden></div>
 <div id="cinema-screen-lyrics" lang="ar" dir="rtl" hidden></div>
-<div id="heart-lyrics" lang="ar" dir="rtl" hidden></div>
+<div id="cinema-screen-lyrics-dark" lang="ar" dir="rtl" hidden></div>
+ <div id="cinema-screen-lyrics-white" lang="ar" dir="rtl" hidden></div>
+ <div id="heart-lyrics" lang="ar" dir="rtl" hidden></div>
+ <div id="party-lyrics" lang="ar" dir="rtl" hidden></div>
 <div id="phone-panel">
   <img id="phone-screen-img" src="" alt="" />
   <div id="phone-message-text" lang="ar" dir="rtl" hidden>
@@ -352,8 +513,55 @@
     <div class="phone-body"><span class="ltr-iso">&lt;3</span> : يلا عالمسرح</div>
   </div>
 </div>
+<div id="intro-cutscene" hidden>
+  <img id="intro-cutscene-poster" alt="" hidden />
+  <video id="intro-cutscene-video" muted playsinline webkit-playsinline preload="auto" disablepictureinpicture disableremoteplayback></video>
+</div>
+<div id="intro-dialogue-container"><div id="intro-dialogue" lang="ar" dir="rtl" hidden></div></div>
 <div id="credits-overlay" hidden>
-  <div id="credits-content">[CREDITS PLACEHOLDER -- Hazem to provide]</div>
+  <div id="credits-content">
+    <!-- Order: the grant that made it possible (owner voice note: first, biggest logo), then the song
+         itself, the people on the recording, the picture, release, thanks. -->
+    <section class="cr-block">
+      <p class="cr-role">This project was made possible with the support of</p>
+      <div class="cr-sponsor"><img src="assets/game/credits/2048_foundation.png" alt="2048 Foundation" /></div>
+      <p class="cr-name">2048 Foundation | Lubani Grantees</p>
+    </section>
+    <section class="cr-block cr-title">
+      <p class="cr-song" lang="ar" dir="rtl">مالي ومالو</p>
+      <p class="cr-song-latin">Mali W Malo</p>
+      <p class="cr-role">Performed, written, produced, mixed and mastered by</p>
+      <p class="cr-name cr-artist">Manos</p>
+    </section>
+    <section class="cr-block">
+      <p class="cr-role">Choral</p>
+      <p class="cr-name">Rami Hatim</p>
+      <p class="cr-name">Yusra</p>
+      <p class="cr-name">Safa</p>
+      <p class="cr-name">Yasmin</p>
+    </section>
+    <section class="cr-block">
+      <p class="cr-role">Choral recording</p>
+      <p class="cr-name">Ibrahim Awwad</p>
+      <img class="cr-logo" src="assets/game/credits/the_way_studio.png" alt="The Way Studio" />
+    </section>
+    <section class="cr-block">
+      <p class="cr-role">Artwork, video production</p>
+      <p class="cr-role cr-role-tight">game design &amp; development</p>
+      <p class="cr-name">Hazem Zakaria</p>
+      <img class="cr-logo cr-mark" src="assets/game/credits/hazem_mark.png" alt="Hazem Zakaria" />
+    </section>
+    <section class="cr-block">
+      <p class="cr-role">Label distribution</p>
+      <img class="cr-logo" src="assets/game/credits/levantine_music.png" alt="Levantine Music" />
+    </section>
+    <section class="cr-block">
+      <p class="cr-role">Special thanks</p>
+      <p class="cr-name">Ahmad Kamal</p>
+      <p class="cr-name">Edge Solution</p>
+      <p class="cr-name">The Way Studio</p>
+    </section>
+  </div>
 </div>
 <!-- Phaser is vendored so the game runs with no network: sandboxed agents could not verify
      anything while this was CDN-only (ERR_NETWORK_ACCESS_DENIED). CDN stays as the fallback. -->
@@ -421,22 +629,34 @@
   // In-world cinema-screen lyric box, in 1280x720 design px. This is the stage backdrop
   // between the curtain legs, above the sopranos' heads (their content tops sit at y=328)
   // and below the valance's lowest dip (~y=248) -- the only clear, unoccupied space there.
-  // INTERIM (2026-09-10): the old 1376x768 rect (520, 252, 340x58) converted proportionally
-  // to the 1280x720 canvas; not yet re-measured against the new theatre plate (Q3 validates).
-  const CINEMA_LYRIC_RECT = { x: 483.7, y: 236.3, width: 316.3, height: 54.4 };
-  // Level 1 one-line lyric box inside the Fara7 heart marquee's dark interior, in 1280x720
-  // design px. Measured 2026-09-13, fara7_geometry report (section 5): inside the all-8-frame
-  // safe interior mask (>4px from bulb glow, below the notch, above the flowers), #FFD54A
-  // contrast >= 10.71:1 at the worst pixel.
-  const HEART_LYRIC_RECT = { x: 514, y: 212, width: 248, height: 42 };
+  // P3 measured and Astra accepted this one-line rectangle across all eight Theatre frames.
+  const CINEMA_LYRIC_RECT = { x: 469, y: 240, width: 342, height: 40 };
+  // Level 1 one-line lyric box inside the Fara7 heart marquee, in 1280x720 design px.
+  // Owner-chosen 2026-09-15 ("Option A") from three candidates rendered in the running game.
+  //
+  // Derived, not eyeballed: the widest 42px-tall band, on the construction grid (y = 40k, here
+  // k=6), whose every pixel clears a 7.0:1 WCAG contrast ratio against the lyric's own #FFD54A in
+  // ALL EIGHT shipped frames. The every-frame requirement is what keeps it off the marquee bulbs,
+  // which move; a single-frame measurement would let the box sit where a bulb later lights.
+  //
+  // The 7.0:1 floor is an owner decision of the same date, replacing an inherited 10.71:1 (see
+  // docs/CONSTRUCTION_DECISIONS.md). At 10.71 the only viable box in the heart is 87px wide, which
+  // forces the line to the 22px minimum AND still clips it -- which is why the Level 1 construction
+  // audit correctly reported "no heart lyric rect satisfied the rule". 7.0 still clears WCAG AA for
+  // normal text (4.5) and more than doubles the large-text requirement (3.0).
+   const HEART_LYRIC_RECT = { x: 489, y: 240, width: 297, height: 42 };
+   // Owner decision 2026-09-16: centered on Party's x=620 banner axis. All cues from 132s to
+   // the end fit on one line at 22px; the banner is not repainted.
+   const PARTY_LYRIC_RECT = { x: 506, y: 280, width: 228, height: 40 };
   // Font ranges in design px (shrink-to-fit, 1px steps). Cinema: 22->17 as before. Heart:
   // 28->22 on ONE line (CSS nowrap, so it shrinks instead of wrapping): the longest Level 1
   // cue is ~231px wide at 28 and the 1.44em ink height fits 42; 22 design px is still ~12 CSS
   // px on a 400px-tall landscape phone (same report).
   const WORLD_LYRICS = [
-    { id: 'cinema-screen-lyrics', rect: CINEMA_LYRIC_RECT, maxFont: 22, minFont: 17 },
-    { id: 'heart-lyrics', rect: HEART_LYRIC_RECT, maxFont: 28, minFont: 22 },
-  ];
+     { id: 'cinema-screen-lyrics', rect: CINEMA_LYRIC_RECT, maxFont: 22, minFont: 17 },
+     { id: 'heart-lyrics', rect: HEART_LYRIC_RECT, maxFont: 28, minFont: 22 },
+     { id: 'party-lyrics', rect: PARTY_LYRIC_RECT, maxFont: 22, minFont: 22 },
+   ];
 
   // Cached rendered canvas rect: refreshed only by positionAllOverlays() (resize,
   // visualViewport, Phaser's own scale resize, font load, the 500ms fallback), never read per frame.
@@ -494,6 +714,7 @@
   // hook and by positionAllOverlays() -- one helper, so the fallback can never disagree with
   // or overwrite the camera-driven placement.
   function positionWorldLyrics() {
+    let cinemaScreenBox = null;
     for (const box of WORLD_LYRICS) {
       const el = document.getElementById(box.id);
       if (!el || el.hidden || !el.textContent) continue;
@@ -505,7 +726,93 @@
         el.style.transform = transform;
         box.lastTransform = transform;
       }
+      if (box.id === 'cinema-screen-lyrics') {
+        cinemaScreenBox = s;
+        // The ink passes share the cream pass's fitted text and camera transform exactly.
+        for (const id of INK_PASS_IDS) {
+          const passEl = document.getElementById(id);
+          if (!passEl) continue;
+          passEl.style.width = el.style.width;
+          passEl.style.height = el.style.height;
+          passEl.style.fontSize = el.style.fontSize;
+          passEl.style.transform = transform;
+        }
+      }
     }
+
+    // Complementary clipping in design px (the clip scales with the transform above).
+    const creamEl = document.getElementById('cinema-screen-lyrics');
+    const scene = window.game && window.game.scene && window.game.scene.keys && window.game.scene.keys.Level;
+    const paths = creamEl && !creamEl.hidden && scene && scene.getTheatreLyricInkPaths
+      ? scene.getTheatreLyricInkPaths() : null;
+    let clips = ['none', EMPTY_CLIP, EMPTY_CLIP];
+    // Preferred: ink classified per device pixel from the rendered backdrop (whole device-pixel
+    // edges by construction). Until the first backdrop read, fall back to the snapped design paths.
+    const deviceInk = paths && cinemaScreenBox && scene.getTheatreLyricDeviceInkPaths
+      ? scene.getTheatreLyricDeviceInkPaths(cinemaScreenBox, canvasRect, window.devicePixelRatio || 1) : null;
+    if (deviceInk) {
+      if (deviceClips.source !== deviceInk) {
+        deviceClips.source = deviceInk;
+        deviceClips.clips = [deviceInk.paths.cream, deviceInk.paths.white, deviceInk.paths.black]
+          .map((p) => (p ? `path('${deviceInkPath(p, deviceInk, cinemaScreenBox)}')` : EMPTY_CLIP));
+      }
+      clips = deviceClips.clips;
+    } else if (paths) {
+      const transformKey = cinemaScreenBox
+        ? `${cinemaScreenBox.left}|${cinemaScreenBox.top}|${cinemaScreenBox.scaleX}|${cinemaScreenBox.scaleY}|${window.devicePixelRatio}`
+        : '';
+      if (snappedInk.paths !== paths || snappedInk.transformKey !== transformKey) {
+        snappedInk.paths = paths;
+        snappedInk.transformKey = transformKey;
+        snappedInk.clips = [paths.cream, paths.white, paths.black]
+          .map((p) => (p ? `path('${snapInkPath(p, cinemaScreenBox)}')` : EMPTY_CLIP));
+      }
+      clips = snappedInk.clips;
+    }
+    ['cinema-screen-lyrics', ...INK_PASS_IDS].forEach((id, i) => {
+      const passEl = document.getElementById(id);
+      // Compare with what we last wrote: the style getter normalizes the string.
+      if (passEl && appliedClips[id] !== clips[i]) {
+        passEl.style.clipPath = clips[i];
+        appliedClips[id] = clips[i];
+      }
+    });
+  }
+  const INK_PASS_IDS = ['cinema-screen-lyrics-white', 'cinema-screen-lyrics-dark'];
+  const EMPTY_CLIP = 'polygon(0px 0px, 0px 0px, 0px 0px)';
+  const appliedClips = {};
+  const snappedInk = { paths: null, transformKey: null, clips: null };
+  const deviceClips = { source: null, clips: null };
+
+  // Device-pixel ink rectangles (indices from the ink's origin) -> the element's local design px.
+  // Every edge is a whole device pixel of the current transform, so passes share exact boundaries.
+  function deviceInkPath(path, ink, s) {
+    const local = (index, origin, screenOrigin, scale) => Math.round((((index + origin) / ink.dpr - screenOrigin) / scale) * 1e6) / 1e6;
+    return path.replace(INK_RECT, (match, x0, y0, x1, y1) => {
+      const left = local(Number(x0), ink.originX, s.left, s.scaleX);
+      const top = local(Number(y0), ink.originY, s.top, s.scaleY);
+      const bottom = local(Number(y1), ink.originY, s.top, s.scaleY);
+      return `M${left} ${top}H${local(Number(x1), ink.originX, s.left, s.scaleX)}V${bottom}H${left}Z`;
+    });
+  }
+
+  // The ink rectangles have whole design-px edges, but under canvas scale x camera zoom those
+  // edges land between device pixels. Chromium antialiases each pass's clip on its own, so at a
+  // shared edge the neighbouring passes no longer add up to full coverage (visible seams). Every
+  // edge is snapped to the nearest whole device pixel of the current on-screen transform and
+  // expressed back in the element's local design px. A shared edge snaps identically in both
+  // passes, so they remain a disjoint cover with nothing left to antialias.
+  const INK_RECT = /M(\d+) (\d+)H(\d+)V(\d+)H\d+Z/g;
+  function snapInkPath(path, s) {
+    if (!s) return path;
+    const dpr = window.devicePixelRatio || 1;
+    const local = (screen, origin, scale) => Math.round(((screen - origin) / scale) * 1e6) / 1e6;
+    const snapX = (v) => local(Math.round((s.left + v * s.scaleX) * dpr) / dpr, s.left, s.scaleX);
+    const snapY = (v) => local(Math.round((s.top + v * s.scaleY) * dpr) / dpr, s.top, s.scaleY);
+    return path.replace(INK_RECT, (match, x0, y0, x1, y1) => {
+      const left = snapX(Number(x0));
+      return `M${left} ${snapY(Number(y0))}H${snapX(Number(x1))}V${snapY(Number(y1))}H${left}Z`;
+    });
   }
   window.positionWorldLyrics = positionWorldLyrics;
 
@@ -526,12 +833,49 @@
   // Exposed so src/game.js can call this directly when needed.
   window.positionCreditsOverlay = positionCreditsOverlay;
 
+  // Stage coordinates (1280x720 design space):
+  // Manos customer mark: (310, 640), head top y=200. Bubble sits above-left of head.
+  // Shopkeeper counter mark: (642, 436), head top y=236. Bubble sits above head.
+  const INTRO_SPEECH_ANCHORS = {
+    // Follow LEVEL0_SHOP marks in src/game.js (Hz construction): bubble offset from each mark unchanged.
+    manos: { stageX: 430, stageY: 175 },      // Manos x500: above-left of his head
+    shopkeeper: { stageX: 722, stageY: 215 }, // shopkeeper x812: centred over his head (mark - 90)
+  };
+  function positionIntroOverlays() {
+    const canvas = window.game && window.game.canvas;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const layer = document.getElementById('intro-cutscene');
+    if (layer) {
+      layer.style.left = rect.left + 'px';
+      layer.style.top = rect.top + 'px';
+      layer.style.width = rect.width + 'px';
+      layer.style.height = rect.height + 'px';
+    }
+    const container = document.getElementById('intro-dialogue-container');
+    if (container) {
+      container.style.left = rect.left + 'px';
+      container.style.top = rect.top + 'px';
+      container.style.width = rect.width + 'px';
+      container.style.height = rect.height + 'px';
+    }
+    const caption = document.getElementById('intro-dialogue');
+    if (caption) {
+      const speaker = caption.dataset.speaker || 'manos';
+      const anchor = INTRO_SPEECH_ANCHORS[speaker] || INTRO_SPEECH_ANCHORS.manos;
+      caption.style.left = (anchor.stageX / 1280 * 100) + '%';
+      caption.style.top = (anchor.stageY / 720 * 100) + '%';
+    }
+  }
+  window.positionIntroOverlays = positionIntroOverlays;
+
   function positionAllOverlays() {
     refreshCanvasRect();
     positionLyricBubble();
     positionPhoneOverlays();
     positionWorldLyrics();
     positionCreditsOverlay();
+    positionIntroOverlays();
   }
 
   window.addEventListener('resize', positionAllOverlays);
