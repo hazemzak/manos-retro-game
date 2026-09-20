@@ -96,6 +96,29 @@ const ACTOR_WALK_IN_ANIMS = {
   tabla_player_walkin: 'tablaPlayerWalkInAnim',
 };
 const ACTOR_WALK_IN_SHEETS = Object.keys(ACTOR_WALK_IN_ANIMS);
+// Walk-in facing, single owner. The old rule assumed EVERY walk-in sheet is authored walking
+// LEFT, so "entered from the left wing" alone decided the mirror. That is false: rendering
+// frame 4 of each sheet shows the soprano walk-ins really are drawn walking left, but all four
+// Level 1 band walk-ins (musician_{keyboard,accordion,drums}_walkin, tabla_player_walkin) are
+// drawn walking RIGHT. Under the old rule the flip inverted art that was already correct and
+// the band moonwalked -- body facing one way, sliding the other.
+//
+// Owner ruling 2026-09-20: "just make them face whatever direction they are going". So facing
+// is now travel direction XOR the sheet's own authored facing, and a spec states that authored
+// facing with `walkInFacesRight`. Undeclared = false = the historical left-authored assumption,
+// so every actor that did not opt in keeps byte-for-byte its previous flip.
+//
+// Both flip sites go through here -- buildInteractiveActors() (spawn) and startActorEntrance()
+// (the walk itself). They used to duplicate the expression, and fixing only one gives a sprite
+// that spawns facing correctly and then flips back the moment it starts walking.
+function actorWalkInFlipX(spec) {
+  // No entrance = no walk to face along; the sprite spawns on its mark unflipped, exactly as
+  // the degraded "walk-in sheet not registered yet" path has always done.
+  if (!spec || !spec.entrance) return false;
+  // A left-wing entrant travels screen-RIGHT toward its mark; a right-wing entrant travels left.
+  const travellingRight = spec.entrance.side === 'left';
+  return travellingRight !== !!spec.walkInFacesRight;
+}
 // The four band members' "playing their instrument" loops -- the terminal visual an actor
 // holds forever once it has been hit to threshold, gone dizzy and faded through. Level-
 // AGNOSTIC on purpose, exactly like ACTOR_WALK_IN_ANIMS above: the same four sheets are
@@ -288,49 +311,57 @@ const FARA7 = {
   // Measured 2026-09-13, fara7_geometry report: set to the ground line (the old
   // interimY(628) lay below the deck lip).
   stageFootY: 570.17,
-  // Measured (BLOCKING_COORDINATES.md), per band member: footX/footY, the derived
-  // STANDING height (idle/walk-in/dizzy) and the plate's measured seated PERFORMANCE
-  // height (the playing-instrument loop). Package E: per-visual heights (see
-  // bandPerformanceVisual()/setActorVisual()) are what let one actor use both numbers.
-  // footX LOCKED by the owner 2026-09-15, derived from the Level 1 Hz construction by
-  // hz-test-regen/placement/level1_fara7.py (which asserts the rules): accordion's outer
-  // silhouette edge on the focal-frame side (construction x 240), equal gaps (31.48px) between
-  // the three left players and up to Manos, drums alone on the right with equal gaps (37.25px)
-  // Manos -> drums -> couple chair. Widths are the seated PLAYING silhouettes. footY and heights
-  // are the 2026-09-13 fara7_geometry measurements, unchanged.
+  // RESTAGED 2026-09-19 per assets/generated/environments/hz-test-regen/placement/
+  // level1_fara7_restage/level1_fara7_restage.json (hz-construction-method, Hoppe 13 tactics;
+  // corrected screen order vs. the reference photo: keyboard, accordion, drums, manos, couple,
+  // tabla). footX/footY/heights below are that construction's `band.*` entries -- footY is now
+  // a single shared band line (543.48), replacing the two slightly different footY values the
+  // pre-restage measurement had per member.
   band: {
-    accordion: { footX: 253.09, footY: 566.32, standingHeight: 204.4, performanceHeight: 155.3 },
-    keyboard: { footX: 391.08, footY: 565.51, standingHeight: 216.5, performanceHeight: 164.5 },
-    tabla: { footX: 511.85, footY: 565.51, standingHeight: 198.3, performanceHeight: 150.7 },
-    drums: { footX: 807.0, footY: 566.32, standingHeight: 193.3, performanceHeight: 157.7 },
+    keyboard: { footX: 312.96, footY: 543.48, standingHeight: 176.45, performanceHeight: 134.07 },
+    accordion: { footX: 405.3, footY: 543.48, standingHeight: 166.58, performanceHeight: 126.57 },
+    drums: { footX: 514.15, footY: 543.48, standingHeight: 157.54, performanceHeight: 128.52 },
+    tabla: { footX: 961.04, footY: 543.48, standingHeight: 161.61, performanceHeight: 122.82 },
   },
-  // Play area ("confinement", GAME_PLAN section 0; it LIFTS for the scripted exit). Owner lock
-  // 2026-09-15: Manos may step in front of his nearest neighbour on each side (the band draws
-  // behind him) but never past that neighbour's mark -- tabla's footX to drums' footX.
-  walkMinX: 511.85,
-  walkMaxX: 807.0,
-  // Manos mark, owner lock 2026-09-15: the construction centre x (the heart's centre,
-  // construction 764.4 / 1.2). "Since he is the main guy" -- the hero stands under the heart.
+  // Play area ("confinement", GAME_PLAN section 0; it LIFTS for the scripted exit). RESTAGED
+  // 2026-09-19: the corrected screen order puts drums (upstage-left) and couple (right) as
+  // Manos's new nearest neighbours, and the deck itself measures wider now (his own silhouette
+  // extremities would reach the deck's front-lip corners, walkMinX/walkMaxX 244.01/1033.96 per
+  // the construction's `walk` block) -- but that's a difficulty change (295px span -> 790px), a
+  // human judgement call the construction doc itself flags as unresolved, not a placement fact.
+  // Using the construction's own `conservative_alternative` instead: keeps today's 295.15px span,
+  // re-centred on the heart axis. Revisit with Hazem -- the wider bound may read better once seen
+  // live, this is a deliberately cautious default while he's away.
+  walkMinX: 489.42,
+  walkMaxX: 784.58,
+  // Manos mark, owner lock 2026-09-15, unchanged by the restage (construction doc: "unchanged:
+  // heart-centre axis and the existing FARA7.groundY").
   playerSpawnX: 637.0,
-  // INTERIM (band entrances): stage-RIGHT entry mark just off the right screen edge. Every
-  // walk-in sheet draws its character walking LEFT, so an actor entering here travels left
-  // with the art unflipped.
+  // INTERIM (band entrances): stage-RIGHT entry mark just off the right screen edge. An actor
+  // entering here travels LEFT toward its mark; whether that needs a mirror depends on the
+  // sheet's own authored facing, which actorWalkInFlipX() owns.
   wingX: interimX(1330),
-  // INTERIM: stage-LEFT entry mark, the mirror of wingX. An actor entering from here has
-  // its walk-in sheet flipped (setFlipX) so the left-facing art reads as walking RIGHT.
+  // INTERIM: stage-LEFT entry mark, the mirror of wingX. An actor entering here travels RIGHT.
   leftWingX: interimX(30),
   entranceSpeedPxPerSecond: 220,
-  // The bride/groom heart-chair (fara7_couple_heart_chair_idle). x owner-locked 2026-09-15: the
-  // chair's outer silhouette edge on the focal-frame side (construction x 1296 -> game 1080).
-  // footY measured 2026-09-13, fara7_geometry report; content height unchanged (scale 0.2951).
-  couple: { x: 999.12, footY: 562.47, contentHeight: 140.8 },
+  // RESTAGED 2026-09-19: the bride/groom heart-chair now sits at the construction's `couple`
+  // mark (x=772.15, footY=553.793, contentHeight=125.17) -- moved upstage-right of Manos under
+  // the corrected screen order, per level1_fara7_restage.json.
+  couple: { x: 772.15, footY: 553.793, contentHeight: 125.17 },
 };
 // Background furthest back; the band and wedding-party dressing sit behind the hero.
 // The crowd is the one thing IN FRONT of him (depth > the player's default 0): the fans
 // are the closest bodies to camera, so their raised hands must cross over Manos, not sit
 // behind him. It is its own RGBA layer rather than baked into the background loop, which
 // is why the background clip deliberately contains no people.
-const FARA7_DEPTH = { background: -10, band: -5, dressing: -4, crowd: 5 };
+// bandSolo: all four band members share `band`, and Phaser breaks a depth tie by display-list
+// insertion order -- the roster inserts drums LAST, so the drummer won every tie and drew on
+// top of the keyboard soloist once the solo walked him across the stage. The soloist takes this
+// depth for the duration of the solo only (startLevel1KeyboardSolo / finishLevel1KeyboardSolo)
+// and is put straight back on `band` afterwards. Deliberately a half-step rather than a
+// renumber: it is strictly above every band member and strictly below `dressing` -- and so
+// below `crowd`, which must stay the only layer in front of the hero.
+const FARA7_DEPTH = { background: -10, band: -5, bandSolo: -4.5, dressing: -4, crowd: 5 };
 const FARA7_CROWD_KEY = 'level1_fara7_crowd';
 // Astra's facing ruling for Level 1 (matching Level 3, see PARTY_HELD_FLIP_X): held poses use
 // the authored, unmirrored art -- flipX = false on arrival and in every stationary state (idle,
@@ -338,6 +369,11 @@ const FARA7_CROWD_KEY = 'level1_fara7_crowd';
 // to face right during transit). Level 2 deliberately does NOT set this: its sopranos keep
 // their pre-change baseline facing.
 const FARA7_HELD_FLIP_X = false;
+// Authored facing of the four Level 1 band walk-in sheets, owner ruling 2026-09-20 ("just make
+// them face whatever direction they are going"). These sheets are drawn walking RIGHT, unlike
+// the left-authored sopranos -- see actorWalkInFlipX(), which consumes this via bandMember().
+// This is the WALK only; FARA7_HELD_FLIP_X above still owns every stationary pose.
+const FARA7_BAND_WALK_IN_FACES_RIGHT = true;
 
 // Level 1's own sheets, same grouped shape (and same three consumers) as
 // LEVEL2_ANIM_GROUPS below. The band's idle/love loops are NOT here -- they predate this
@@ -583,19 +619,33 @@ const THEATRE_DEPTH = { background: -10, beams: -9.5, pools: -9, soprano: -5 };
 const THEATRE_PUSH_IN_RATE = 0.06 / 70;   // zoom per song second (~0.000857)
 const THEATRE_PUSH_IN_MAX_ZOOM = 1.08;
 
-// Ground-truth singing windows for Theatre sopranos:
-// Phase 1: 71-88s, Phase 2: 113.98s through Theatre's exit (132s).
-// Outside these windows, joined sopranos rest at their mic positions.
-const THEATRE_SINGING_PHASE1_START = 71;
-const THEATRE_SINGING_PHASE1_END = 88;
-// PROVISIONAL: derived from assets/lyrics.json's song structure (the 113.98-134.38s
-// held climax note), not a directly annotated backing-vocal cue like Phase 1. Needs
-// Hazem's live confirmation and may need a follow-up one-line correction.
-const THEATRE_SINGING_PHASE2_START = 113.98;
+// Ground-truth singing windows for Theatre sopranos: marked by Hazem directly against the
+// real track (docs/choral_cue_sheet/, 2026-09-18) via the Choral Cue Sheet tool, replacing
+// the old guessed two-phase approximation. Outside these windows, joined sopranos rest at
+// their mic positions. Two later marks from that same pass (133.71-141.31, 165.27-180.85)
+// are Level 3's, not Theatre's -- see PARTY_SINGING_WINDOWS.
+const THEATRE_SINGING_WINDOWS = [
+  { start: 71.99, end: 76.57 },
+  { start: 79.9, end: 87.02 },
+  { start: 102.96, end: 118.05 },
+];
 
 function isTheatreSingingWindow(elapsed) {
-  return (elapsed >= THEATRE_SINGING_PHASE1_START && elapsed < THEATRE_SINGING_PHASE1_END)
-    || (elapsed >= THEATRE_SINGING_PHASE2_START && elapsed < LEVEL3_ENTRANCE_SECONDS);
+  return THEATRE_SINGING_WINDOWS.some((w) => elapsed >= w.start && elapsed < w.end);
+}
+
+// Shared by isTheatreSingingWindow's beam-fade sibling below: a fade-in/hold/fade-out
+// envelope (0..1) over an arbitrary list of {start,end} windows, replacing the old
+// hardcoded two-phase branch in getTheatreBeamOpacities().
+function singingFadeEnvelope(windows, elapsed, fade) {
+  for (const w of windows) {
+    if (elapsed >= w.start && elapsed < w.end + fade) {
+      if (elapsed < w.start + fade) return (elapsed - w.start) / fade;
+      if (elapsed < w.end) return 1.0;
+      return 1.0 - (elapsed - w.end) / fade;
+    }
+  }
+  return 0.0;
 }
 
 const THEATRE_SOLO_POOL_RISE_SECONDS = 60 / 124;
@@ -625,24 +675,7 @@ function getTheatreBeamOpacities(elapsed) {
   const manos = 1.0;
 
   const fade = THEATRE_BEAM_FADE_SECONDS;
-  let trio = 0.0;
-  if (elapsed >= THEATRE_SINGING_PHASE1_START && elapsed < THEATRE_SINGING_PHASE1_END + fade) {
-    if (elapsed < THEATRE_SINGING_PHASE1_START + fade) {
-      trio = (elapsed - THEATRE_SINGING_PHASE1_START) / fade;
-    } else if (elapsed < THEATRE_SINGING_PHASE1_END) {
-      trio = 1.0;
-    } else {
-      trio = 1.0 - (elapsed - THEATRE_SINGING_PHASE1_END) / fade;
-    }
-  } else if (elapsed >= THEATRE_SINGING_PHASE2_START && elapsed < LEVEL3_ENTRANCE_SECONDS + fade) {
-    if (elapsed < THEATRE_SINGING_PHASE2_START + fade) {
-      trio = (elapsed - THEATRE_SINGING_PHASE2_START) / fade;
-    } else if (elapsed < LEVEL3_ENTRANCE_SECONDS) {
-      trio = 1.0;
-    } else {
-      trio = 1.0 - (elapsed - LEVEL3_ENTRANCE_SECONDS) / fade;
-    }
-  }
+  const trio = singingFadeEnvelope(THEATRE_SINGING_WINDOWS, elapsed, fade);
 
   const soloProgress = Math.max(0, Math.min(
     1,
@@ -2690,6 +2723,9 @@ class LevelScene extends Phaser.Scene {
       depth: FARA7_DEPTH.band,
       // Level 1 held facing -- see FARA7_HELD_FLIP_X.
       heldFlipX: FARA7_HELD_FLIP_X,
+      // All four Level 1 band walk-in sheets are authored walking RIGHT -- see
+      // actorWalkInFlipX(). Only this factory sets it, so only these four are affected.
+      walkInFacesRight: FARA7_BAND_WALK_IN_FACES_RIGHT,
       idle: visuals.idle,
       walkIn: visuals.walkIn,
       dizzy: visuals.dizzy,
@@ -2707,8 +2743,8 @@ class LevelScene extends Phaser.Scene {
         ],
         speedPxPerSecond: FARA7.entranceSpeedPxPerSecond,
         earliestStartMs,
-        // buildInteractiveActors() turns this into the sprite's flipX. 'left' means the
-        // left-facing walk-in art is mirrored so it reads as walking rightward.
+        // Which wing this actor walks on from, and therefore which way it travels. It is
+        // actorWalkInFlipX() that turns this plus walkInFacesRight into the sprite's flipX.
         side,
       },
       clipBottomY: null,
@@ -2728,11 +2764,16 @@ class LevelScene extends Phaser.Scene {
     // opens with only Manos on stage -- buildInteractiveActors() parks every entrance actor
     // hidden on its wing mark.
     //
-    // Marks: owner lock 2026-09-15 (see FARA7.band). Accordion, keyboard and tabla stand LEFT of
-    // Manos and enter from the LEFT wing; the drums stand alone on the RIGHT, between Manos and
-    // the couple, and enter from the RIGHT wing. Same start-time SET (1500/7000/13500/20000) and
-    // the same furthest-mark-first invariant: on the left wing tabla(511.85) is furthest, then
-    // keyboard(391.08), then accordion(253.09); the drums are the right wing's only walker.
+    // RESTAGED 2026-09-19: the corrected screen order (keyboard, accordion, drums, manos,
+    // couple, tabla -- level1_fara7_restage.json) puts keyboard/accordion/drums LEFT of Manos
+    // and moves tabla alone to the RIGHT, past the couple -- the construction doc's own T6
+    // tactic explicitly places tabla "by reflection" as the mirror of keyboard's outer-left
+    // anchor role, i.e. tabla is now the right wing's sole walker and drums joins the left
+    // group. Entrance sides flipped accordingly (tabla: left -> right, drums: right -> left).
+    // Start times and the furthest-mark-first ordering within the new left group (drums is now
+    // closest to Manos/furthest from the left wing, then accordion, then keyboard closest to the
+    // wing) are UNCHANGED here and not re-verified against the new marks -- flagged for a look,
+    // this is inferred from the reflection tactic, not explicitly specified by the construction.
     this.buildInteractiveActors([
       // The tabla player -- a genuinely new fourth band member (GAME_PLAN section 0), and
       // the one the old street roster was missing entirely. His sheets do not follow the
@@ -2742,10 +2783,10 @@ class LevelScene extends Phaser.Scene {
         walkIn: { textureKey: 'tabla_player_walkin', animationKey: ACTOR_WALK_IN_ANIMS.tabla_player_walkin },
         dizzy: { textureKey: 'tabla_player_dizzy_love', animationKey: loops.tabla_player_dizzy_love },
         performance: bandPerformanceVisual('tabla_player_playing', FARA7.band.tabla.performanceHeight),
-      }, 1500, 'left'),
+      }, 1500, 'right'),
       bandMember('keyboard', FARA7.band.keyboard, musician('keyboard', 'Keyboard', FARA7.band.keyboard), 7000, 'left'),
       bandMember('accordion', FARA7.band.accordion, musician('accordion', 'Accordion', FARA7.band.accordion), 13500, 'left'),
-      bandMember('drums', FARA7.band.drums, musician('drums', 'Drums', FARA7.band.drums), 20000, 'right'),
+      bandMember('drums', FARA7.band.drums, musician('drums', 'Drums', FARA7.band.drums), 20000, 'left'),
     ]);
   }
 
@@ -2936,6 +2977,7 @@ class LevelScene extends Phaser.Scene {
       depth: PARTY_DEPTH.cast,
       // Level 3 held facing -- see PARTY_HELD_FLIP_X.
       heldFlipX: PARTY_HELD_FLIP_X,
+      walkInFacesRight: visuals.performance?.kind === 'instrument' ? FARA7_BAND_WALK_IN_FACES_RIGHT : undefined,
       idle: visuals.idle,
       walkIn: visuals.walkIn,
       dizzy: visuals.dizzy,
@@ -3051,14 +3093,14 @@ class LevelScene extends Phaser.Scene {
       };
       const sprite = this.add.sprite(usableSpec.targetX, usableSpec.footY, usableSpec.idle.textureKey, 0);
       sprite.setDepth(usableSpec.depth);
-      // Every walk-in sheet is drawn walking left, so a left-wing entrant is mirrored to
-      // read as walking right. setActorVisual() deliberately does not reset flipX, so for a
-      // roster WITHOUT spec.heldFlipX (Level 2) that mirror persists through
+      // Facing for the walk, from actorWalkInFlipX(): travel direction against the sheet's own
+      // authored facing. setActorVisual() deliberately does not reset flipX, so for a roster
+      // WITHOUT spec.heldFlipX (Level 2) that mirror persists through
       // walk-in -> idle -> dizzy -> playing exactly as it always has. A roster WITH
       // spec.heldFlipX (Levels 1 and 3) states its facing per state instead: directional while
       // walking, the authored orientation in every stationary pose, applied by
       // applyActorHeldFacing() at each transition.
-      sprite.setFlipX(!!(usableSpec.entrance && usableSpec.entrance.side === 'left'));
+      sprite.setFlipX(actorWalkInFlipX(usableSpec));
 
       const actor = {
         spec: usableSpec,
@@ -3168,12 +3210,12 @@ class LevelScene extends Phaser.Scene {
 
   startActorEntrance(actor) {
     const start = actor.spec.entrance.path[0];
-    // Facing for the WALK, stated here rather than inherited from build time: the walk
-    // sheets are drawn walking left, so a left-wing entrant is mirrored and a right-wing
-    // entrant is not. Only rosters that pin their held facing state it again here; the
-    // others keep the flip buildInteractiveActors() gave them, unchanged.
+    // Facing for the WALK, stated here rather than inherited from build time -- same
+    // actorWalkInFlipX() the spawn uses, so the two can no longer disagree. Only rosters that
+    // pin their held facing state it again here; the others keep the flip
+    // buildInteractiveActors() gave them, unchanged.
     if (actor.spec.heldFlipX !== undefined) {
-      actor.sprite.setFlipX(actor.spec.entrance.side === 'left');
+      actor.sprite.setFlipX(actorWalkInFlipX(actor.spec));
     }
     actor.sprite.setPosition(start.x, start.y);
     actor.sprite.setVisible(true);
@@ -4141,9 +4183,20 @@ class LevelScene extends Phaser.Scene {
     actor.keyboardSoloRestore = {
       state: this.getKeyboardSoloRestoreState(actor, priorState),
       flipX: actor.sprite.flipX,
+      // Read off the sprite, not the spec, so the restore returns exactly what was there.
+      depth: actor.sprite.depth,
     };
-    // Staged offset from Manos and clamp range, measured 2026-09-13, fara7_geometry report.
-    actor.keyboardSoloTargetX = Phaser.Math.Clamp(this.player.x - 129.67, 435.21, 761.80);
+    // Out of the band's shared depth for the duration of the solo -- otherwise the drummer,
+    // inserted last into the display list, wins the tie and draws over the soloist. See
+    // FARA7_DEPTH.bandSolo.
+    actor.sprite.setDepth(FARA7_DEPTH.bandSolo);
+    // RESTAGED 2026-09-19: retuned so the target lands on level1_fara7_restage.json's
+    // `keyboard_solo_walk_room.solo_target_mark` (footX 519.69) when Manos is at his own
+    // unchanged mark (playerSpawnX 637.0) -- offset 637.0 - 519.69 = 117.31 (was 129.67). Clamp
+    // bounds shifted by the same delta, keeping the original 326.59px window width (the
+    // construction doc gives this one reference point, not new clamp bounds directly -- best
+    // -effort retune, worth an eye once seen live).
+    actor.keyboardSoloTargetX = Phaser.Math.Clamp(this.player.x - 117.31, 356.4, 682.99);
     actor.state = 'keyboard_solo_walking';
     actor.sprite.setVisible(true);
     actor.sprite.setAlpha(1);
@@ -4169,6 +4222,9 @@ class LevelScene extends Phaser.Scene {
 
   finishLevel1KeyboardSolo(actor) {
     if (!this.interactiveActors.includes(actor) || !actor.keyboardSoloRestore) return;
+    // The raised depth is the solo's, not the actor's: hand it back before letting go of the
+    // restore record, so the keyboardist rejoins the band's shared layer.
+    if (actor.sprite.active) actor.sprite.setDepth(actor.keyboardSoloRestore.depth);
     actor.keyboardSoloRestore = null;
     actor.keyboardSoloTargetX = null;
   }
