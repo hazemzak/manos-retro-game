@@ -1157,16 +1157,16 @@
       "contentCenterY": 320
     },
     "theatre_mic_3": {
-      "file": "assets/generated/characters/theatre_mic/theatre_mic_three_green_gold_blue_spritesheet.png",
+      "file": "assets/generated/characters/theatre_mic/theatre_mic_three_fused_spritesheet.png",
       "frameWidth": 512,
       "frameHeight": 576,
       "frames": 8,
-      "contentLeft": 66,
-      "contentTop": 69,
-      "contentWidth": 419,
-      "contentHeight": 472,
-      "contentCenterX": 275,
-      "contentCenterY": 304
+      "contentLeft": 27,
+      "contentTop": 56,
+      "contentWidth": 444,
+      "contentHeight": 485,
+      "contentCenterX": 249,
+      "contentCenterY": 298
     },
     "level1_fara7_bg": {
       "files": [
