@@ -83,7 +83,7 @@ const THEATRE_SRGB_LINEAR = Array.from({ length: 256 }, (_, v) => {
   const c = v / 255;
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 });
-const THEATRE_CINEMA_LYRIC_RECT = { x: 469, y: 240, width: 342, height: 40 };
+const THEATRE_CINEMA_LYRIC_RECT = { x: 469, y: 272, width: 342, height: 40 };
 
 // Band walk-in sheets, texture key -> animation key. Kept in one place because three
 // separate passes need the same list (the loader in create(), the anims in buildLevel(),
@@ -394,7 +394,7 @@ const FARA7 = {
   // ruling: physical grounding outranks Package K's eye-line rule -- a seated couple with a
   // lower eye line than standing musicians is coherent, hovering is not). The band's own
   // face-line lock is untouched. The two-sprite fallback below reads this same footY.
-  couple: { x: 807.0, footY: 562.47, contentHeight: 140.8 },
+  couple: { x: 807.0, footY: 562.47, contentHeight: 144.0 },
 };
 // Background furthest back; the band and wedding-party dressing sit behind the hero.
 // The crowd is the one thing IN FRONT of him (depth > the player's default 0): the fans
@@ -457,10 +457,10 @@ const LEVEL1_ANIM_GROUPS = {
 // real gesture. Two clocks. Before PLAY the film runs free on the intro clock
 // (this.introClockStart) while getLevelElapsed() stays 0; when the film reaches its on-screen PLAY
 // frame the song starts at 0 (startSongClock()) and the film is held to the song clock from then
-// on. The film's end is the Fara7 reveal (song 4.75 s). Band entrances stay on song time
+// on. The film's end is the Fara7 reveal (song 9.125 s). Band entrances stay on song time
 // (LEVEL1_BAND_ENTRANCE_SONG_SECONDS), as do solo 50s, phone 53s and walk-off 62s.
 // Any film failure falls back to the sprite shop scene, which presses PLAY itself.
-const LEVEL0_FILM_SECONDS = 21;
+const LEVEL0_FILM_SECONDS = 609 / 24;
 // docs/level0_dialogue_final_2026-09-22/sfx_cues.json play_down: the button travels in on frame 390.
 const LEVEL0_FILM_PLAY_SECONDS = 390 / 24;
 const LEVEL0_REVEAL_SONG_SECONDS = LEVEL0_FILM_SECONDS - LEVEL0_FILM_PLAY_SECONDS;
@@ -491,9 +491,9 @@ const introSmoothstep = (a, b, v) => {
 const introLerp = (a, b, t) => (a && b ? { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t } : a || b);
 // Film fallbacks on the film clock (intro clock before PLAY, PLAY + song time after it, so a
 // paused song never trips them): no playback progress for STALL ms (also covers a play()
-// promise that never settles), or not ended by MAX ms (the 21 s film plus 3 s of slack).
+// promise that never settles), or not ended by MAX ms (the 25.375 s film plus 3 s of slack).
 const LEVEL0_FILM_STALL_MS = 2500;
-const LEVEL0_FILM_MAX_MS = 24000;
+const LEVEL0_FILM_MAX_MS = 28375;
 // Song-synced film drift correction: sampled this often (not every tick), seeks past tolerance.
 const LEVEL0_MEDIA_DRIFT_CHECK_MS = 500;
 const LEVEL0_MEDIA_DRIFT_TOLERANCE_SECONDS = 0.1;
@@ -3399,8 +3399,8 @@ class LevelScene extends Phaser.Scene {
     // missing/unregistered, on the couple's line. x measured 2026-09-13, fara7_geometry report;
     // heights are still the old converted values (KEEP).
     const placements = [
-      ['wife_bride_seated_idle', 742.59, interimY(165)],
-      ['husband_groom_seated_idle', 824.23, interimY(150)],
+      ['wife_bride_seated_idle', 742.59, interimY(168.75)],
+      ['husband_groom_seated_idle', 824.23, interimY(153.41)],
     ];
     for (const [textureKey, x, contentHeight] of placements) {
       if (!this.hasSheet(textureKey)) continue;
@@ -5123,16 +5123,21 @@ class LevelScene extends Phaser.Scene {
 
     this.cancelGesture();
     if (!this.player.body.onFloor()) {
-      if (this.exitPinX === null) this.exitPinX = this.player.x;
-      const vy = this.player.body.velocity.y;
-      this.player.body.reset(this.exitPinX, this.player.y);
-      this.player.setVelocityY(vy);
+      // Same airborne hold as updateStageExit(): pin X once, let Arcade finish the fall.
+      if (this.exitPinX === null) {
+        this.exitPinX = this.player.x;
+        this.player.setVelocityX(0);
+      }
       this.exitSettling = true;
+      return;
+    }
+    if (this.exitPinX !== null) {
+      // Landed this tick: one more held tick so the sprite catches up, as in updateStageExit().
+      this.exitPinX = null;
       return;
     }
 
     this.exitSettling = false;
-    this.exitPinX = null;
     this.theatrePhoneStarted = true;
     // Recompute at the settled position in case the cue first arrived while he was airborne.
     this.theatreWalkOffSeconds = this.getTheatreExitTiming().walkOffSeconds;
@@ -5161,9 +5166,17 @@ class LevelScene extends Phaser.Scene {
   // independent of the keyboard actor's hit count -- a fixed musical beat must not become
   // unreachable because the player never landed three hits on that one musician.
   //
-  // Airborne at the handoff: pin X and let the jump finish naturally first, the same
-  // recipe (body.reset() to hold X, velocityY carried across by hand because reset()
-  // zeroes it, wait for onFloor()) the kiosk gate's 'settling' state used.
+  // Airborne at the handoff: pin X and let the jump finish naturally first, then wait for
+  // onFloor(). X is held by zeroing horizontal speed once here and every tick in update()'s
+  // exitSettling branch -- NOT by a per-tick body.reset(): this runs after Arcade has
+  // already stepped the body, so a reset threw each tick's fall away while gravity kept
+  // piling into velocity.y, freezing him in mid-air for seconds.
+  //
+  // After a landing he is held for one grounded tick more before the phone starts. On a
+  // frame where Arcade takes two steps, the body can land and report onFloor() while the
+  // sprite still shows the pre-landing position (postUpdate has not synced it yet); the
+  // phone's texture swap then re-reads the sprite (applyPlayerFrameAnchor ->
+  // updateFromGameObject) and lifted him back up 16.5px mid-phone.
   updateStageExit(elapsed, delta) {
     // Level 3 is excluded from both halves as explicitly as Level 2 is. Without that, the
     // Party -- where level2Active is false and the song clock is already past 50s -- ran
@@ -5184,16 +5197,20 @@ class LevelScene extends Phaser.Scene {
     this.cancelGesture();
 
     if (!this.player.body.onFloor()) {
-      if (this.exitPinX === null) this.exitPinX = this.player.x;
-      const vy = this.player.body.velocity.y;
-      this.player.body.reset(this.exitPinX, this.player.y);
-      this.player.setVelocityY(vy);
+      if (this.exitPinX === null) {
+        this.exitPinX = this.player.x;
+        this.player.setVelocityX(0);
+      }
       this.exitSettling = true;
+      return;
+    }
+    if (this.exitPinX !== null) {
+      // Landed this tick: hold one more (exitSettling stays true) -- see the header comment.
+      this.exitPinX = null;
       return;
     }
 
     this.exitSettling = false;
-    this.exitPinX = null;
     this.cutsceneActive = true;
     // Confinement lifts for the scripted exit (GAME_PLAN section 0): both the FARA7 clamp
     // in update() and Arcade's own world-bounds collision have to let go, or he would
@@ -5984,7 +6001,8 @@ class LevelScene extends Phaser.Scene {
       } else if (this.phoneOwner === 'theatre') {
         this.exitHoldOneTick = false;
         if (this.theatreWalkOffSeconds !== null && elapsed < this.theatreWalkOffSeconds) {
-          this.player.setVelocity(0, 0);
+          // X only: zeroing Y too would cap gravity at one tick's worth, a 0.5 px/frame drift.
+          this.player.setVelocityX(0);
           this.player.setFlipX(true);
         } else if (this.isPlayerThroughTheatreDoor()) {
           this.player.setVelocity(0, 0);

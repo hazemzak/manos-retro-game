@@ -2240,11 +2240,11 @@
         "assets/game/cutscenes/level0/full_poster.png"
       ],
       "poster": "assets/game/cutscenes/level0/full_poster.png",
-      "durationSeconds": 21.0,
+      "durationSeconds": 25.375,
       "playFrame": 390,
       "playSeconds": 16.25,
       "sizeBytes": {
-        "video": 7807414,
+        "video": 9964726,
         "poster": 590109
       },
       "videoMetadata": {
@@ -2253,7 +2253,7 @@
         "width": 1280,
         "height": 720,
         "frameRate": "24/1",
-        "frameCount": 504,
+        "frameCount": 609,
         "constantFrameRate": true,
         "audioStreams": 1,
         "audioCodec": "aac",
@@ -2262,7 +2262,7 @@
         "fastStart": true
       },
       "sha256": {
-        "assets/game/cutscenes/level0/full.mp4": "891e873e2863355161ee47fdcf29e6368136af0061d81ca3e79eab38352fd136",
+        "assets/game/cutscenes/level0/full.mp4": "36471f72b421b98c9863a6b6f46e3a4d08ef1621454d3b0508a049ac3ff4e576",
         "assets/game/cutscenes/level0/full_poster.png": "7d9f0c32578273c9704cdb2049ef54a8785d0369123aa359f18a7a0e8df52130"
       }
     },
