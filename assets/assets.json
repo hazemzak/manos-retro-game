@@ -65,36 +65,36 @@
       "frameWidth": 419,
       "frameHeight": 468,
       "frames": 8,
-      "contentLeft": 19,
-      "contentTop": 6,
-      "contentWidth": 367,
-      "contentHeight": 455,
-      "contentCenterX": 202,
-      "contentCenterY": 233
+      "contentLeft": 86,
+      "contentTop": 17,
+      "contentWidth": 272,
+      "contentHeight": 444,
+      "contentCenterX": 221,
+      "contentCenterY": 238
     },
     "phone_read": {
       "file": "assets/generated/characters/manos/phone_read/phone_read_spritesheet_newcloth_2026-09-19.png",
       "frameWidth": 419,
       "frameHeight": 468,
       "frames": 8,
-      "contentLeft": 84,
-      "contentTop": 13,
-      "contentWidth": 250,
-      "contentHeight": 452,
-      "contentCenterX": 208,
-      "contentCenterY": 238
+      "contentLeft": 107,
+      "contentTop": 18,
+      "contentWidth": 216,
+      "contentHeight": 443,
+      "contentCenterX": 214,
+      "contentCenterY": 239
     },
     "phone_check_idle": {
       "file": "assets/generated/characters/manos/phone_check_idle/phone_check_idle_spritesheet_newcloth_2026-09-19.png",
       "frameWidth": 419,
       "frameHeight": 468,
       "frames": 8,
-      "contentLeft": 86,
-      "contentTop": 10,
-      "contentWidth": 246,
-      "contentHeight": 456,
-      "contentCenterX": 208,
-      "contentCenterY": 238
+      "contentLeft": 104,
+      "contentTop": 18,
+      "contentWidth": 218,
+      "contentHeight": 443,
+      "contentCenterX": 212,
+      "contentCenterY": 239
     },
     "fara7_couple_heart_chair_idle": {
       "file": "assets/generated/characters/fara7_couple/heart_chair_idle/fara7_couple_heart_chair_idle_spritesheet.png",
@@ -393,7 +393,7 @@
       "contentTop": 30,
       "contentWidth": 104,
       "contentHeight": 350,
-      "contentCenterX": 90,
+      "contentCenterX": 89,
       "contentCenterY": 204
     },
     "soprano_gold_shoulder_dance": {
@@ -405,7 +405,7 @@
       "contentTop": 55,
       "contentWidth": 168,
       "contentHeight": 325,
-      "contentCenterX": 90,
+      "contentCenterX": 89,
       "contentCenterY": 217
     },
     "soprano_green_shoulder_dance": {
@@ -1113,12 +1113,12 @@
       "frameWidth": 240,
       "frameHeight": 360,
       "frames": 8,
-      "contentLeft": 0,
-      "contentTop": 0,
-      "contentWidth": 240,
-      "contentHeight": 351,
-      "contentCenterX": 120,
-      "contentCenterY": 175
+      "contentLeft": 12,
+      "contentTop": 33,
+      "contentWidth": 216,
+      "contentHeight": 318,
+      "contentCenterX": 119,
+      "contentCenterY": 191
     },
     "theatre_mic_empty": {
       "file": "assets/generated/characters/theatre_mic/theatre_mic_empty_spritesheet.png",
@@ -1157,16 +1157,16 @@
       "contentCenterY": 320
     },
     "theatre_mic_3": {
-      "file": "assets/generated/characters/theatre_mic/theatre_mic_three_fused_spritesheet.png",
+      "file": "assets/generated/characters/theatre_mic/theatre_mic_three_owner_trio_spritesheet.png",
       "frameWidth": 512,
       "frameHeight": 576,
       "frames": 8,
-      "contentLeft": 27,
-      "contentTop": 56,
-      "contentWidth": 444,
-      "contentHeight": 485,
-      "contentCenterX": 249,
-      "contentCenterY": 298
+      "contentLeft": 70,
+      "contentTop": 159,
+      "contentWidth": 355,
+      "contentHeight": 383,
+      "contentCenterX": 247,
+      "contentCenterY": 350
     },
     "level1_fara7_bg": {
       "files": [
@@ -1236,11 +1236,11 @@
       "frameWidth": 542,
       "frameHeight": 724,
       "frames": 4,
-      "contentLeft": 121,
+      "contentLeft": 120,
       "contentTop": 40,
-      "contentWidth": 291,
+      "contentWidth": 292,
       "contentHeight": 663,
-      "contentCenterX": 266,
+      "contentCenterX": 265,
       "contentCenterY": 371
     },
     "idle_party": {
@@ -1252,7 +1252,7 @@
       "contentTop": 28,
       "contentWidth": 326,
       "contentHeight": 669,
-      "contentCenterX": 267,
+      "contentCenterX": 266,
       "contentCenterY": 362
     },
     "dizzy_death": {
@@ -2233,17 +2233,19 @@
       },
       "sha256": "e6b32e61952b1a3fa5d3cc9fe23122b8838f5e95ab2762bf5be134e74de567d4"
     },
-    "level0_cutscene_pov": {
-      "file": "assets/game/cutscenes/level0/pov.mp4",
+    "level0_cutscene_full": {
+      "file": "assets/game/cutscenes/level0/full.mp4",
       "files": [
-        "assets/game/cutscenes/level0/pov.mp4",
-        "assets/game/cutscenes/level0/pov_poster.png"
+        "assets/game/cutscenes/level0/full.mp4",
+        "assets/game/cutscenes/level0/full_poster.png"
       ],
-      "poster": "assets/game/cutscenes/level0/pov_poster.png",
-      "durationSeconds": 8.041667,
+      "poster": "assets/game/cutscenes/level0/full_poster.png",
+      "durationSeconds": 21.0,
+      "playFrame": 390,
+      "playSeconds": 16.25,
       "sizeBytes": {
-        "video": 2475282,
-        "poster": 424877
+        "video": 7807414,
+        "poster": 590109
       },
       "videoMetadata": {
         "codec": "h264",
@@ -2251,40 +2253,17 @@
         "width": 1280,
         "height": 720,
         "frameRate": "24/1",
+        "frameCount": 504,
         "constantFrameRate": true,
-        "audioStreams": 0,
+        "audioStreams": 1,
+        "audioCodec": "aac",
+        "audioSampleRate": 48000,
+        "audioChannels": 2,
         "fastStart": true
       },
       "sha256": {
-        "assets/game/cutscenes/level0/pov.mp4": "ed20efe5b795ec498731cdcaa0baee24ea114a27d6018b5545ce24e5f52f4dee",
-        "assets/game/cutscenes/level0/pov_poster.png": "c981212e4252e5c22a37bf030f1794763c9e44b4f1da59818bb8774b234418f2"
-      }
-    },
-    "level0_cutscene_headphones": {
-      "file": "assets/game/cutscenes/level0/headphones.mp4",
-      "files": [
-        "assets/game/cutscenes/level0/headphones.mp4",
-        "assets/game/cutscenes/level0/headphones_poster.png"
-      ],
-      "poster": "assets/game/cutscenes/level0/headphones_poster.png",
-      "durationSeconds": 5.806452,
-      "sizeBytes": {
-        "video": 1675898,
-        "poster": 462711
-      },
-      "videoMetadata": {
-        "codec": "h264",
-        "pixelFormat": "yuv420p",
-        "width": 1280,
-        "height": 720,
-        "frameRate": "4309/180",
-        "constantFrameRate": true,
-        "audioStreams": 0,
-        "fastStart": true
-      },
-      "sha256": {
-        "assets/game/cutscenes/level0/headphones.mp4": "586420545feff13eb925f483896554c3f38fac918b5d66517d4e2ffb47f54c63",
-        "assets/game/cutscenes/level0/headphones_poster.png": "67c2d02a7e8f2b42306a1725ce918540ebffbacb4e09dcd4a548923b4c0fde21"
+        "assets/game/cutscenes/level0/full.mp4": "891e873e2863355161ee47fdcf29e6368136af0061d81ca3e79eab38352fd136",
+        "assets/game/cutscenes/level0/full_poster.png": "7d9f0c32578273c9704cdb2049ef54a8785d0369123aa359f18a7a0e8df52130"
       }
     },
     "level1_fara7_crowd": {
@@ -2468,6 +2447,54 @@
         "anchorFrameY": 376
       },
       "sha256": "0608820a10b9193fc936ca91b8316843d522faea9a736475021e263e0bcc68bc"
+    },
+    "theatre_curtain_peek_accordion": {
+      "file": "assets/generated/characters/theatre_curtain_peek/theatre_curtain_peek_accordion_spritesheet.png",
+      "frameWidth": 341,
+      "frameHeight": 256,
+      "frames": 3,
+      "contentLeft": 147,
+      "contentTop": 15,
+      "contentWidth": 168,
+      "contentHeight": 220,
+      "contentCenterX": 230,
+      "contentCenterY": 124
+    },
+    "theatre_curtain_peek_drums": {
+      "file": "assets/generated/characters/theatre_curtain_peek/theatre_curtain_peek_drums_spritesheet.png",
+      "frameWidth": 341,
+      "frameHeight": 256,
+      "frames": 3,
+      "contentLeft": 155,
+      "contentTop": 15,
+      "contentWidth": 160,
+      "contentHeight": 220,
+      "contentCenterX": 234,
+      "contentCenterY": 124
+    },
+    "theatre_curtain_peek_keyboard": {
+      "file": "assets/generated/characters/theatre_curtain_peek/theatre_curtain_peek_keyboard_spritesheet.png",
+      "frameWidth": 341,
+      "frameHeight": 256,
+      "frames": 3,
+      "contentLeft": 145,
+      "contentTop": 15,
+      "contentWidth": 170,
+      "contentHeight": 220,
+      "contentCenterX": 229,
+      "contentCenterY": 124
+    },
+    "theatre_curtain_peek_tabla": {
+      "file": "assets/generated/characters/theatre_curtain_peek/theatre_curtain_peek_tabla_spritesheet.png",
+      "frameWidth": 341,
+      "frameHeight": 256,
+      "frames": 3,
+      "contentLeft": 145,
+      "contentTop": 15,
+      "contentWidth": 170,
+      "contentHeight": 220,
+      "contentCenterX": 229,
+      "contentCenterY": 124
     }
   },
   "level1": {
@@ -2533,47 +2560,47 @@
         "rootPolicy": "perFrameGroundContact"
       },
       "phone_pull": {
-        "sha256": "9cbc5965280bfd455cd52516cc27a15aafde7b1b13bd9e9376924146dd135900",
-        "bodyReferenceHeight": 449,
+        "sha256": "f2876301455641c26eb9fc56e85b353d2dee1203a070424b564106d868021680",
+        "bodyReferenceHeight": 444,
         "frameRootY": [
-          460,
-          460,
-          460,
           461,
-          454,
-          455,
-          455,
-          454
+          461,
+          461,
+          461,
+          461,
+          461,
+          461,
+          461
         ],
         "rootPolicy": "perFrameGroundContact"
       },
       "phone_read": {
-        "sha256": "6d6e0eb5c22e5c1d1fb15b678ce5288b13258d8dbf5e17a5ad7780590b7a1413",
-        "bodyReferenceHeight": 430,
+        "sha256": "efe9fb441583044bc3beee4edd4bb2e2284b8624f4528e03feeec2730ecc3266",
+        "bodyReferenceHeight": 443,
         "frameRootY": [
-          456,
-          456,
-          456,
-          455,
-          441,
-          446,
-          441,
-          446
+          461,
+          461,
+          461,
+          461,
+          461,
+          461,
+          461,
+          461
         ],
         "rootPolicy": "perFrameGroundContact"
       },
       "phone_check_idle": {
-        "sha256": "58b695dfec5e30720cbc687221a4e89ff0e055d5a812f570fbcac9a87f8153d5",
-        "bodyReferenceHeight": 419,
+        "sha256": "65e6adf450535f80d0c4b3da9bbc8ba21ae8b486e8b65b63e5135459bc058488",
+        "bodyReferenceHeight": 443,
         "frameRootY": [
-          448,
-          448,
-          448,
-          448,
-          437,
-          437,
-          437,
-          437
+          461,
+          461,
+          461,
+          461,
+          461,
+          461,
+          461,
+          461
         ],
         "rootPolicy": "perFrameGroundContact"
       },
@@ -2593,7 +2620,7 @@
         "rootPolicy": "perFrameGroundContact"
       },
       "singing_fara7": {
-        "sha256": "45fa6e2d73d3b39d76fddee35c5ddcd2e9133f1fc6f0c38faf523bab4e19caab",
+        "sha256": "387bf2c4b69461c739950170a73a4c0606bdf69f60854c43a508ceb4c08c70e0",
         "bodyReferenceHeight": 414,
         "frameRootY": [
           454,
@@ -2608,7 +2635,7 @@
         "rootPolicy": "perFrameGroundContact"
       },
       "singing_theatre": {
-        "sha256": "ecd7eb1f11a815380f7b6bdb7b65d292c43a46a2aa7d844a57b2dd260a85d6af",
+        "sha256": "e8fda7fccac14455145571bf5b5d120d53da55f4e072597d859d0aaae0cd658e",
         "bodyReferenceHeight": 431,
         "frameRootY": [
           451,
@@ -2623,7 +2650,7 @@
         "rootPolicy": "perFrameGroundContact"
       },
       "singing_party": {
-        "sha256": "03fac9cf168068ef450733c8d1b37a2d25b66b5734db0027d5248307c28dc9f2",
+        "sha256": "929f8237b20d3136def12dfd0fbaeeedfac8f7f4af591c2a4d542ff57c7a9d54",
         "bodyReferenceHeight": 432,
         "frameRootY": [
           454,

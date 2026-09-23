@@ -355,8 +355,8 @@
   }
   #credits-overlay[hidden] { display: none; }
   /* Level 0 cutscene media layer (src/game.js openIntroMedia()). Opaque, fitted to the rendered
-     canvas rect by positionIntroOverlays(); the poster sits behind a muted inline video that is
-     only revealed (opacity) once it is decoding at the right position. Below the lyric boxes
+     canvas rect by positionIntroOverlays(); the poster sits behind the Level 0 film, an inline
+     video with sound (never muted), revealed (opacity) once it is playing. Below the lyric boxes
      (9), touch/volume (10), phone (11) and credits (12); never intercepts input. */
   #intro-cutscene {
     position: fixed;
@@ -475,6 +475,11 @@
   .cr-artist { font-size: 3.6cqw; letter-spacing: 0.2em; }
   .cr-sponsor { display: inline-block; background: #f4e9d8; border-radius: 1cqw; padding: 1.6cqw 2.4cqw; margin: 1.6cqw 0; }
   .cr-sponsor img { display: block; width: 34cqw; height: auto; }
+  /* The 2048 mark since 2026-09-22: cream ink keyed out of its black field, so no plate. 28cqw
+     (1.99:1 -> 14.1cqw tall) stands about as tall as the old plate (15.8cqw) and stays the
+     biggest logo (the others are 17cqw) without outweighing the 6.5cqw song title below. */
+  .cr-sponsor--bare { background: none; border-radius: 0; padding: 0; }
+  .cr-sponsor--bare img { width: 28cqw; }
   .cr-logo { display: block; margin: 1.4cqw auto 0; width: 17cqw; height: auto; }
   .cr-mark { width: 6cqw; }
   .cr-role-tight { margin-top: 0 !important; }
@@ -515,7 +520,7 @@
 </div>
 <div id="intro-cutscene" hidden>
   <img id="intro-cutscene-poster" alt="" hidden />
-  <video id="intro-cutscene-video" muted playsinline webkit-playsinline preload="auto" disablepictureinpicture disableremoteplayback></video>
+  <video id="intro-cutscene-video" playsinline webkit-playsinline preload="auto" disablepictureinpicture disableremoteplayback></video>
 </div>
 <div id="intro-dialogue-container"><div id="intro-dialogue" lang="ar" dir="rtl" hidden></div></div>
 <div id="credits-overlay" hidden>
@@ -524,7 +529,7 @@
          itself, the people on the recording, the picture, release, thanks. -->
     <section class="cr-block">
       <p class="cr-role">This project was made possible with the support of</p>
-      <div class="cr-sponsor"><img src="assets/game/credits/2048_foundation.png" alt="2048 Foundation" /></div>
+      <div class="cr-sponsor cr-sponsor--bare"><img src="assets/game/credits/2048_foundation.png" alt="2048 Foundation" /></div>
       <p class="cr-name">2048 Foundation | Lubani Grantees</p>
     </section>
     <section class="cr-block cr-title">
@@ -560,6 +565,11 @@
       <p class="cr-name">Ahmad Kamal</p>
       <p class="cr-name">Edge Solution</p>
       <p class="cr-name">The Way Studio</p>
+    </section>
+    <section class="cr-block">
+      <p class="cr-role">Directed by</p>
+      <p class="cr-name">Hazem Zakaria</p>
+      <img class="cr-logo cr-mark" src="assets/game/credits/hazem_mark.png" alt="Hazem Zakaria" />
     </section>
   </div>
 </div>
