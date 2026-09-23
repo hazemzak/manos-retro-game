@@ -515,7 +515,12 @@
   <img id="phone-screen-img" src="" alt="" />
   <div id="phone-message-text" lang="ar" dir="rtl" hidden>
     <div class="phone-sender">♥ من مانوس</div>
-    <div class="phone-body"><span class="ltr-iso">&lt;3</span> : يلا عالمسرح</div>
+    <!-- One body per destination; showPhonePanel() reveals the one matching phoneOwner.
+         The level1 phone sends him to the theatre, the theatre phone sends him to the
+         party -- before this, both beats showed the theatre text, so the second message
+         told him to go where he already was. -->
+    <div class="phone-body" data-dest="level1"><span class="ltr-iso">&lt;3</span> : يلا عالمسرح</div>
+    <div class="phone-body" data-dest="theatre" hidden><span class="ltr-iso">&lt;3</span> : يلا عالحفلة</div>
   </div>
 </div>
 <div id="intro-cutscene" hidden>

@@ -5328,6 +5328,10 @@ class LevelScene extends Phaser.Scene {
     const img = document.getElementById('phone-screen-img');
     const msg = document.getElementById('phone-message-text');
     if (!panel || !img || !msg || !this.isPhonePresentationCurrent()) return;
+    // Pick the body for this beat's destination: level1 -> theatre, theatre -> party.
+    msg.querySelectorAll('.phone-body').forEach((el) => {
+      el.hidden = el.dataset.dest !== this.phoneOwner;
+    });
     img.src = 'assets/game/sms_stage_2_select.png';
     msg.hidden = true;
     panel.classList.add('phone-panel-visible'); // triggers the CSS slide-in transition
